@@ -32,6 +32,14 @@ def main() -> None:
         sys.exit("src/cameraConfig.html tiene que registrar geotab.addin.cameraConfig "
                  "(el nombre tiene que coincidir con el archivo cameraConfig.html).")
 
+    # MyGeotab rechazó ("El objeto de configuración no es válido") una versión con el CSS
+    # en un template literal de JS. Para el JSON de instalación se convierte a una cadena común.
+    m = re.search(r"var CSS = `(.*?)`;", html, re.S)
+    if m:
+        html = html[:m.start()] + "var CSS = " + json.dumps(m.group(1), ensure_ascii=True) + ";" + html[m.end():]
+    if "`" in html:
+        sys.exit("Quedan comillas invertidas (`) en el HTML; MyGeotab puede rechazar la configuración.")
+
     config = {
         "name": "Configuración de cámaras",
         "supportEmail": "soporte@cesetti.com.ar",
@@ -46,7 +54,8 @@ def main() -> None:
     }
 
     OUT.parent.mkdir(exist_ok=True)
-    OUT.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # ensure_ascii=True: acentos y símbolos van como \uXXXX, así el JSON es ASCII puro.
+    OUT.write_text(json.dumps(config, ensure_ascii=True, indent=2) + "\n", encoding="ascii")
     print(f"Generado {OUT.relative_to(ROOT)} (versión {version}, {OUT.stat().st_size // 1024} KB)")
 
 
