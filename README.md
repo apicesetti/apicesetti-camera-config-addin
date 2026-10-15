@@ -3,7 +3,8 @@
 Add-in para ver la configuración de todas las cámaras Surfsight (GO Focus / AI-12) de una base de MyGeotab y detectar las que se apartan del estándar de la flota.
 
 - Muestra la flota completa en un mosaico: una celda por cámara, en rojo las que tienen desvíos.
-- Calcula el estándar de cada parámetro con el valor más común de la flota. Se puede ajustar a mano o dejar de controlar un parámetro.
+- El estándar se define a mano, parámetro por parámetro: Sí/No, una opción de la lista o un valor libre (brillo, tiempo de standby, PIN). Los parámetros sin definir no se controlan. "Completar con lo más común" llena los que falten con el valor más frecuente de la flota, como punto de partida.
+- El estándar se guarda en la base de MyGeotab (AddInData), así que todos los usuarios de la base ven y editan el mismo.
 - Lista cada diferencia de forma legible ("Grabación en cabina **No** en vez de Sí") y permite ver la configuración completa de cada cámara.
 - Aplica el estándar en una o varias cámaras, con confirmación previa, y deja registro en la Auditoría de la base.
 - Exporta a CSV la configuración de todas las cámaras visibles, con una fila de estándar.
@@ -52,6 +53,7 @@ Detalles a tener en cuenta:
 | Configuración de una cámara | `GET https://media-services.geotab.com/api/Surfsight/DeviceSettings/{imei}` |
 | Cambio de configuración | `PATCH https://media-services.geotab.com/api/Surfsight/DeviceSettings` con `{"imeis":[...],"config":{"param":{"value":x}}}` |
 | Vehículo de cada cámara | `Get Device` de la API de MyGeotab, cruzado por número de serie del GO. |
+| Estándar | Un registro `AddInData` con `addInId` `a1BwanQJoRn-Mxo0iUvTCUA` y `details.kind = "cameraStandard"`; los valores van como lista `[{path, value}]`. No cambiar ese `addInId`: se perdería el estándar guardado en cada base. |
 | Registro de cambios | `Add Audit` en la base, con vehículo, patente y parámetros cambiados. |
 
 Las lecturas se hacen de a 6 cámaras en paralelo. En una base de unas 580 cámaras tarda alrededor de un minuto.
@@ -60,7 +62,7 @@ Las lecturas se hacen de a 6 cámaras en paralelo. En una base de unas 580 cáma
 
 - **Solo cámaras Surfsight.** Las GO Focus Plus (proveedor `smarterai`) usan otro endpoint y no se incluyen; el add-in informa cuántas quedaron afuera.
 - **Parámetros compuestos sin corrección automática.** Privacidad por cámara, standby, hotspot y cifrado se detectan como desvío, pero se corrigen desde la configuración de la cámara en MyGeotab: el formato del PATCH para esos parámetros no está verificado.
-- **El estándar ajustado a mano queda en el navegador** (`localStorage`) de quien lo configura. No se comparte entre usuarios ni equipos. "Volver al valor de la mayoría" lo descarta.
+- **El estándar es uno por base** y gana el último que guarda: si dos personas lo editan a la vez, queda la última versión. Si la lectura de AddInData falla, el add-in avisa y usa uno guardado en el navegador.
 - **Cámaras offline:** el cambio se envía igual y la cámara lo toma al conectarse. Hasta entonces puede seguir mostrando el valor anterior.
 - **Permisos:** cualquier usuario con acceso al add-in puede aplicar el estándar. Si hace falta restringirlo, hay que limitar quién ve el add-in en MyGeotab.
 - **El PIN del conductor se muestra enmascarado** (••••), pero se compara igual que el resto de los parámetros.

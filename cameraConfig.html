@@ -36,12 +36,12 @@
     <aside class="side" aria-label="Estándar de configuración">
       <div class="side-h">
         <h2>Estándar de la flota</h2>
-        <p id="ccf-stdnote">El valor que tiene la mayoría de las cámaras. Elegí un parámetro para filtrar o cambiar su estándar.</p>
+        <p id="ccf-stdnote">Elegí un parámetro y definí su valor esperado. Las cámaras con otro valor aparecen como desvío. El estándar se guarda en la base y lo ven todos los usuarios.</p>
       </div>
       <div class="side-b" id="ccf-params"></div>
       <div class="side-f">
         <span id="ccf-stdcount"></span>
-        <button class="linkbtn" id="ccf-stdreset">Volver al valor de la mayoría</button>
+        <button class="linkbtn" id="ccf-stdreset" title="Completa los parámetros sin definir con el valor más común en la flota">Completar con lo más común</button>
       </div>
     </aside>
 
@@ -172,9 +172,17 @@ geotab.addin.cameraConfig = function () {
   #ccf .prm .track > div { height:100%; background:var(--dev); }
   #ccf .prm .edit { display:none; grid-column:1 / -1; gap:10px; align-items:center; padding-top:6px; }
   #ccf .prm.sel .edit { display:flex; }
-  #ccf .prm select { height:28px; border:1px solid var(--line2); border-radius:5px; background:var(--paper); padding:0 6px; max-width:190px; }
-  #ccf .prm label { display:inline-flex; gap:5px; align-items:center; font-size:12.5px; color:var(--ink2); cursor:pointer; }
-  #ccf .side-f { border-top:1px solid var(--line); padding:10px 16px; font-size:12.5px; color:var(--ink3); display:flex; justify-content:space-between; gap:10px; }
+  #ccf .side-f { border-top:1px solid var(--line); padding:10px 16px; font-size:12.5px; color:var(--ink3); display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  #ccf .prm.ig .nm { font-weight:400; color:var(--ink2); }
+  #ccf .prm .cnt.none { color:var(--ink3); font-weight:400; }
+  #ccf .editor { display:flex; flex-wrap:wrap; align-items:center; gap:8px; width:100%; cursor:default; }
+  #ccf .opts { display:inline-flex; background:var(--paper); border:1px solid var(--line2); border-radius:7px; padding:2px; }
+  #ccf .opts button { border:none; background:none; height:26px; padding:0 11px; border-radius:5px; cursor:pointer; color:var(--ink2); font-size:13px; }
+  #ccf .opts button.on { background:var(--blue); color:#fff; }
+  #ccf .field.sm { height:28px; width:120px; min-width:0; flex:0 0 auto; font-size:13px; }
+  #ccf .linkbtn.off { font-size:12.5px; font-weight:400; color:var(--ink2); }
+  #ccf .linkbtn.off.on { color:var(--ink3); cursor:default; }
+  #ccf .dist { width:100%; font-size:12px; color:var(--ink3); }
 
   /* ---------- lista de cámaras ---------- */
   #ccf .main { min-width:0; }
@@ -313,9 +321,12 @@ geotab.addin.cameraConfig = function () {
 
   var api, headers = null, db = "", rows = [], loadToken = 0, loading = false;
   var params = [];            // [{path, label, group, order, simple}]
-  var std = {};               // path -> valor estándar serializado (JSON)
-  var ignored = {};           // path -> true
-  var custom = false;
+  var std = {};               // path -> valor estándar serializado (JSON). Si un parámetro no está, no se controla.
+  var ENUMS = { driverPosition: ["left", "right"], speedUnits: ["kmh", "mph"], dateTimeUnits: ["eu", "us"] };
+  // El estándar se guarda en la base (AddInData) para que todos los usuarios trabajen con el mismo.
+  // Este id identifica los datos de este add-in; no cambiarlo o se pierde el estándar guardado.
+  var ADDIN_ID = "a1BwanQJoRn-Mxo0iUvTCUA";
+  var userName = "", stdRecordId = null, stdMeta = null, stdStore = "db", saveTimer = null, saveState = "";
   var filter = "dev", paramFilter = null, sortKey = "ndev", sortDir = -1, selected = {}, expanded = {};
   var $ = function (id) { return document.getElementById(id); };
 
@@ -325,7 +336,7 @@ geotab.addin.cameraConfig = function () {
       // getSession(callback, newSession:boolean) — el 2.º parámetro es booleano
       api.getSession(function (cred, server) {
         if (!cred || !cred.sessionId) { reject(new Error("No se pudo obtener la sesión de MyGeotab. Volvé a iniciar sesión y actualizá.")); return; }
-        db = cred.database;
+        db = cred.database; userName = cred.userName;
         resolve({
           "X-MyGeotab-Database": encodeURIComponent(cred.database),
           "X-MyGeotab-Username": cred.userName,
@@ -409,30 +420,63 @@ geotab.addin.cameraConfig = function () {
     rows.forEach(function (r) { if (r.cfg) { var s = ser(r.cfg[path]); counts[s] = (counts[s] || 0) + 1; } });
     return Object.keys(counts).map(function (s) { return { s: s, n: counts[s] }; }).sort(function (a, b) { return b.n - a.n; });
   }
-  function majorityStandard() {
-    var out = {};
-    params.forEach(function (p) { var d = distribution(p.path); if (d.length) out[p.path] = d[0].s; });
-    return out;
+  function kindOf(path) {
+    if (ENUMS[path]) return "enum";
+    var vals = distribution(path).map(function (d) { return JSON.parse(d.s); }).filter(function (v) { return v !== null; });
+    if (vals.length && vals.every(function (v) { return typeof v === "boolean"; })) return "bool";
+    if (vals.length && vals.every(function (v) { return typeof v === "number"; })) return "num";
+    return vals.length ? "text" : "bool";
+  }
+  var controlled = function () { return params.filter(function (p) { return p.path in std; }).length; };
+
+  // ---------- estándar: lectura y guardado en la base ----------
+  function storeKey() { return "ccf-standard-v2-" + db; }
+  function fromItems(items) { var o = {}; (items || []).forEach(function (it) { if (it && it.path) o[it.path] = ser(it.value); }); return o; }
+  function toItems() { return Object.keys(std).sort().map(function (k) { return { path: k, value: JSON.parse(std[k]) }; }); }
+
+  function loadStandard() {
+    return apiCall("Get", { typeName: "AddInData", search: { addInId: ADDIN_ID } })
+      .then(function (list) {
+        stdStore = "db";
+        var rec = (list || []).filter(function (x) { return x.details && x.details.kind === "cameraStandard"; })[0];
+        if (rec) { stdRecordId = rec.id; std = fromItems(rec.details.items); stdMeta = { by: rec.details.updatedBy, at: rec.details.updatedAt }; }
+        else { stdRecordId = null; std = {}; stdMeta = null; }
+      })
+      .catch(function (e) {
+        stdStore = "local";
+        try { std = fromItems(JSON.parse(localStorage.getItem(storeKey()) || "{}").items); } catch (x) { std = {}; }
+        saveState = "No se pudo leer el estándar de la base (" + ((e && e.message) || e) + "). Se usa el guardado en este navegador.";
+      });
   }
 
-  function storeKey() { return "ccf-standard-" + db; }
-  function loadSaved() {
-    try { var j = JSON.parse(localStorage.getItem(storeKey()) || "null"); if (j) { std = j.std || {}; ignored = j.ignored || {}; custom = true; } } catch (e) {}
+  function saveStandard() {
+    clearTimeout(saveTimer);
+    saveState = "Guardando…"; renderStdFoot();
+    saveTimer = setTimeout(function () {
+      var details = { kind: "cameraStandard", version: 1, items: toItems(), updatedBy: userName, updatedAt: new Date().toISOString() };
+      if (stdStore === "local") {
+        try { localStorage.setItem(storeKey(), JSON.stringify(details)); } catch (e) {}
+        saveState = "Guardado solo en este navegador."; renderStdFoot(); return;
+      }
+      var call = stdRecordId
+        ? apiCall("Set", { typeName: "AddInData", entity: { id: stdRecordId, addInId: ADDIN_ID, details: details } })
+        : apiCall("Add", { typeName: "AddInData", entity: { addInId: ADDIN_ID, details: details } }).then(function (id) { stdRecordId = id; });
+      call.then(function () { stdMeta = { by: details.updatedBy, at: details.updatedAt }; saveState = ""; renderStdFoot(); })
+        .catch(function (e) { saveState = "No se pudo guardar el estándar en la base: " + ((e && e.message) || e); renderStdFoot(); });
+    }, 700);
   }
-  function save() { try { localStorage.setItem(storeKey(), JSON.stringify({ std: std, ignored: ignored })); } catch (e) {} }
 
-  function computeStandard() {
-    var maj = majorityStandard();
-    if (!custom) { std = maj; return; }
-    params.forEach(function (p) { if (!(p.path in std) && maj[p.path] !== undefined) std[p.path] = maj[p.path]; });
+  function setStandard(path, value) {
+    if (value === undefined) delete std[path]; else std[path] = ser(value);
+    saveStandard(); recompute(); renderAll();
   }
 
   function deviations(r) {
     if (!r.cfg) return [];
-    return params.filter(function (p) { return !ignored[p.path] && (p.path in std) && ser(r.cfg[p.path]) !== std[p.path]; });
+    return params.filter(function (p) { return (p.path in std) && ser(r.cfg[p.path]) !== std[p.path]; });
   }
   function recompute() { rows.forEach(function (r) { r.devs = deviations(r); r.ndev = r.state === "ok" ? r.devs.length : -1; }); }
-  function refreshAll() { buildParams(); computeStandard(); recompute(); renderAll(); }
+  function refreshAll() { buildParams(); recompute(); renderAll(); }
 
   // ---------- carga ----------
   function load() {
@@ -446,12 +490,11 @@ geotab.addin.cameraConfig = function () {
     return getHeaders()
       .then(function (h) {
         headers = h;
-        if (!custom) loadSaved();
-        return Promise.all([ms("/DeviceMappings"), apiCall("Get", { typeName: "Device", propertySelector: { fields: ["id", "name", "licensePlate", "serialNumber"], isIncluded: true } })]);
+        return Promise.all([ms("/DeviceMappings"), loadStandard(), apiCall("Get", { typeName: "Device", propertySelector: { fields: ["id", "name", "licensePlate", "serialNumber"], isIncluded: true } })]);
       })
       .then(function (res) {
         if (!res[0].ok) throw new Error("El servicio de cámaras respondió " + res[0].status + " al listar las cámaras. Actualizá para reintentar.");
-        return res[0].json().then(function (maps) { return [maps, res[1] || []]; });
+        return res[0].json().then(function (maps) { return [maps, res[2] || []]; });
       })
       .then(function (r) {
         if (token !== loadToken) return;
@@ -602,6 +645,11 @@ geotab.addin.cameraConfig = function () {
     var h = $("ccf-headline");
     if (loading) { h.className = "headline"; h.textContent = "Leyendo la configuración de las cámaras…"; return; }
     if (!rows.length) { h.className = "headline"; h.textContent = "No hay cámaras Surfsight en esta base"; $("ccf-lede").textContent = ""; return; }
+    if (!controlled()) {
+      h.className = "headline"; h.textContent = "Definí el estándar de la flota";
+      $("ccf-lede").textContent = "Elegí en el panel de la izquierda el valor esperado de cada parámetro. Las cámaras con otro valor van a aparecer como desvío.";
+      return;
+    }
     if (c.dev) { h.className = "headline dev"; h.innerHTML = '<span class="n">' + c.dev + "</span> " + (c.dev === 1 ? "cámara fuera del estándar" : "cámaras fuera del estándar"); }
     else { h.className = "headline ok"; h.textContent = "Todas las cámaras siguen el estándar"; }
     var parts = [c.all + " cámaras Surfsight en " + db];
@@ -613,11 +661,35 @@ geotab.addin.cameraConfig = function () {
   function renderMosaic() {
     var ordered = rows.slice().sort(function (a, b) { return (b.ndev - a.ndev) || String(a.vehicle).localeCompare(String(b.vehicle), "es", { numeric: true }); });
     $("ccf-mosaic").innerHTML = ordered.map(function (r) {
-      var cls = r.state === "loading" ? "" : r.state === "err" ? "na" : r.ndev === 0 ? "ok" : r.ndev === 1 ? "d1" : "d2";
+      var none = !controlled();
+      var cls = r.state === "loading" ? "" : r.state === "err" ? "na" : none ? "" : r.ndev === 0 ? "ok" : r.ndev === 1 ? "d1" : "d2";
       var t = (r.vehicle || "Sin vehículo") + (r.plate ? " · " + r.plate : "") + " — " +
-        (r.state === "loading" ? "leyendo" : r.state === "err" ? "sin lectura" : r.ndev ? r.ndev + (r.ndev === 1 ? " desvío" : " desvíos") : "conforme");
+        (r.state === "loading" ? "leyendo" : r.state === "err" ? "sin lectura" : none ? "sin estándar definido" : r.ndev ? r.ndev + (r.ndev === 1 ? " desvío" : " desvíos") : "conforme");
       return '<button class="tile ' + cls + '" data-t="' + esc(r.imei) + '" title="' + esc(t) + '" aria-label="' + esc(t) + '"></button>';
     }).join("");
+  }
+
+  function editorHtml(p) {
+    var kind = kindOf(p.path), has = p.path in std, cur = has ? JSON.parse(std[p.path]) : undefined;
+    var opt = function (v, text) {
+      var on = has && ser(v) === std[p.path];
+      return '<button type="button" class="' + (on ? "on" : "") + '" data-v="' + esc(ser(v)) + '" aria-pressed="' + on + '">' + esc(text) + "</button>";
+    };
+    var html = '<div class="editor">';
+    if (kind === "bool") html += '<div class="opts">' + opt(true, "Sí") + opt(false, "No") + "</div>";
+    else if (kind === "enum") {
+      var vals = ENUMS[p.path].slice();
+      distribution(p.path).forEach(function (d) { var v = JSON.parse(d.s); if (v !== null && vals.indexOf(v) < 0) vals.push(v); });
+      html += '<div class="opts">' + vals.map(function (v) { return opt(v, fmt(p.path, v)); }).join("") + "</div>";
+    } else {
+      var val = has && cur !== null ? String(cur) : "";
+      html += '<input class="field sm" data-in="' + esc(p.path) + '" data-kind="' + kind + '" type="' + (isSecret(p.path) ? "password" : kind === "num" ? "number" : "text") + '" value="' + esc(val) + '" placeholder="Valor esperado" aria-label="Valor estándar de ' + esc(p.label) + '">'
+        + '<button type="button" class="btn sm" data-use="' + esc(p.path) + '">Usar</button>';
+    }
+    html += '<button type="button" class="linkbtn off' + (has ? "" : " on") + '" data-v="__none">' + (has ? "Dejar de controlar" : "No se controla") + "</button>";
+    var dist = distribution(p.path).slice(0, 4).map(function (d) { return fmt(p.path, JSON.parse(d.s)) + ": " + d.n; }).join(", ");
+    if (dist) html += '<div class="dist">En la flota hoy: ' + esc(dist) + "</div>";
+    return html + "</div>";
   }
 
   function renderParams() {
@@ -625,27 +697,29 @@ geotab.addin.cameraConfig = function () {
     var html = "", lastGroup = null;
     params.forEach(function (p) {
       if (p.group !== lastGroup) { html += '<div class="grp">' + esc(p.group) + "</div>"; lastGroup = p.group; }
-      var cur = std[p.path];
-      var ndev = rows.filter(function (r) { return r.cfg && ser(r.cfg[p.path]) !== cur; }).length;
-      var pct = read ? Math.min(100, ndev / read * 100) : 0;
+      var has = p.path in std, cur = std[p.path];
+      var ndev = has ? rows.filter(function (r) { return r.cfg && ser(r.cfg[p.path]) !== cur; }).length : 0;
+      var pct = read && has ? Math.min(100, ndev / read * 100) : 0;
       var sel = paramFilter === p.path;
-      var opts = distribution(p.path).map(function (d) {
-        return '<option value="' + esc(d.s) + '"' + (d.s === cur ? " selected" : "") + ">" + esc(fmt(p.path, JSON.parse(d.s))) + " · " + d.n + (d.n === 1 ? " cámara" : " cámaras") + "</option>";
-      }).join("");
-      html += '<div class="prm' + (sel ? " sel" : "") + (ignored[p.path] ? " ig" : "") + '" data-p="' + esc(p.path) + '" tabindex="0" title="' + esc(p.path) + '">'
+      html += '<div class="prm' + (sel ? " sel" : "") + (has ? "" : " ig") + '" data-p="' + esc(p.path) + '" tabindex="0" title="' + esc(p.path) + '">'
         + '<span class="nm">' + esc(p.label) + "</span>"
-        + '<span class="cnt' + (ndev ? "" : " zero") + '">' + (ignored[p.path] ? "—" : ndev ? ndev : "✓") + "</span>"
-        + '<span class="row2"><span class="stdv">' + esc(stdText(p.path)) + '</span><span class="track"><div style="width:' + (ignored[p.path] ? 0 : Math.max(ndev ? 2 : 0, pct)) + '%"></div></span></span>'
-        + '<span class="edit"><select data-std="' + esc(p.path) + '" aria-label="Valor estándar de ' + esc(p.label) + '">' + opts + "</select>"
-        + '<label><input type="checkbox" data-ig="' + esc(p.path) + '"' + (ignored[p.path] ? " checked" : "") + "> No controlar</label></span>"
+        + '<span class="cnt' + (ndev || !has ? "" : " zero") + (has ? "" : " none") + '">' + (!has ? "—" : ndev ? ndev : "✓") + "</span>"
+        + '<span class="row2"><span class="stdv">' + (has ? esc(stdText(p.path)) : "Sin definir") + '</span><span class="track"><div style="width:' + Math.max(ndev ? 2 : 0, pct) + '%"></div></span></span>'
+        + '<span class="edit">' + (sel ? editorHtml(p) : "") + "</span>"
         + "</div>";
     });
     $("ccf-params").innerHTML = html || '<div class="empty">Aparecen cuando termina la lectura.</div>';
-    var act = params.filter(function (p) { return !ignored[p.path]; }).length;
-    $("ccf-stdcount").textContent = params.length ? act + " de " + params.length + " parámetros controlados" : "";
-    $("ccf-stdnote").textContent = custom
-      ? "Estándar ajustado a mano en este navegador. Elegí un parámetro para filtrar o cambiarlo."
-      : "El valor que tiene la mayoría de las cámaras. Elegí un parámetro para filtrar o cambiar su estándar.";
+    renderStdFoot();
+  }
+
+  function renderStdFoot() {
+    var n = controlled();
+    var meta = "";
+    if (saveState) meta = saveState;
+    else if (stdStore === "local") meta = "Guardado solo en este navegador.";
+    else if (stdMeta && stdMeta.at) meta = "Guardado en la base" + (stdMeta.by ? " por " + stdMeta.by : "") + ", " + fmtDate(stdMeta.at) + ".";
+    else meta = "Todavía no hay un estándar guardado en esta base.";
+    $("ccf-stdcount").textContent = params.length ? n + " de " + params.length + " parámetros controlados. " + meta : meta;
   }
 
   function visibleRows() {
@@ -654,7 +728,7 @@ geotab.addin.cameraConfig = function () {
       if (filter === "ok" && !(r.state === "ok" && r.ndev === 0)) return false;
       if (filter === "dev" && !(r.ndev > 0 || r.state === "loading")) return false;
       if (filter === "err" && r.state !== "err") return false;
-      if (paramFilter && !(r.cfg && ser(r.cfg[paramFilter]) !== std[paramFilter])) return false;
+      if (paramFilter && (paramFilter in std) && !(r.cfg && ser(r.cfg[paramFilter]) !== std[paramFilter])) return false;
       if (st && r.status !== st) return false;
       if (q && (r.vehicle + " " + r.plate + " " + r.imei + " " + r.go).toLowerCase().indexOf(q) < 0) return false;
       return true;
@@ -672,7 +746,7 @@ geotab.addin.cameraConfig = function () {
     params.forEach(function (p) {
       if (p.group !== group) { if (group !== null) html += "</div>"; html += "<div><h4>" + esc(p.group) + "</h4>"; group = p.group; }
       var d = devSet[p.path];
-      html += '<div class="kv' + (d ? " d" : ignored[p.path] ? " ig" : "") + '"><span class="k" title="' + esc(p.path) + '">' + esc(p.label) + '</span><span class="v">'
+      html += '<div class="kv' + (d ? " d" : (p.path in std) ? "" : " ig") + '"><span class="k" title="' + esc(p.path) + '">' + esc(p.label) + '</span><span class="v">'
         + esc(fmt(p.path, r.cfg[p.path])) + (d ? ' <span class="t2">(estándar ' + esc(stdText(p.path)) + ")</span>" : "") + "</span></div>";
     });
     if (group !== null) html += "</div>";
@@ -683,6 +757,7 @@ geotab.addin.cameraConfig = function () {
     var vr = visibleRows();
     if (!vr.length) {
       var e = !rows.length ? "No hay cámaras Surfsight en esta base."
+        : !controlled() ? "Definí el estándar en el panel de la izquierda para ver qué cámaras se apartan."
         : filter === "dev" && !paramFilter && !$("ccf-q").value && !$("ccf-status").value ? "Ninguna cámara se aparta del estándar."
         : "Ninguna cámara coincide con estos filtros.";
       $("ccf-body").innerHTML = '<div class="empty">' + e + "</div>"; return;
@@ -714,7 +789,7 @@ geotab.addin.cameraConfig = function () {
   function renderControls(c) {
     ["all", "ok", "dev", "err"].forEach(function (k) { $("ccf-n-" + k).textContent = c[k]; });
     Array.prototype.forEach.call(document.querySelectorAll("#ccf-seg button"), function (b) { b.classList.toggle("on", b.getAttribute("data-f") === filter); });
-    $("ccf-paramchip").innerHTML = paramFilter ? '<span class="chip">Distinto en ' + esc(labelOf(paramFilter)) + ' <button id="ccf-pfx" aria-label="Quitar filtro">×</button></span>' : "";
+    $("ccf-paramchip").innerHTML = paramFilter && (paramFilter in std) ? '<span class="chip">Distinto en ' + esc(labelOf(paramFilter)) + ' <button id="ccf-pfx" aria-label="Quitar filtro">×</button></span>' : "";
     Array.prototype.forEach.call(document.querySelectorAll("#ccf .lh [data-s]"), function (s) { s.classList.toggle("sorted", s.getAttribute("data-s") === sortKey); });
   }
 
@@ -732,7 +807,7 @@ geotab.addin.cameraConfig = function () {
 
   function exportCsv() {
     var head = ["Vehiculo", "Patente", "IMEI", "Serie GO", "Modelo", "Conexion", "Ultima conexion", "Lectura", "Cantidad de desvios", "Desvios"].concat(params.map(function (p) { return p.label; }));
-    var lines = [head, ["", "", "", "", "", "", "", "", "", "ESTÁNDAR"].concat(params.map(function (p) { return ignored[p.path] ? "(no controlado)" : stdText(p.path); }))];
+    var lines = [head, ["", "", "", "", "", "", "", "", "", "ESTÁNDAR"].concat(params.map(function (p) { return (p.path in std) ? stdText(p.path) : "(no controlado)"; }))];
     visibleRows().forEach(function (r) {
       lines.push([r.vehicle, r.plate, r.imei, r.go, r.model, r.status, r.lastOnline, r.state === "ok" ? "ok" : (r.why || r.state),
         r.state === "ok" ? r.devs.length : "", r.devs.map(function (p) { return p.label; }).join(" | ")]
@@ -770,9 +845,10 @@ geotab.addin.cameraConfig = function () {
     $("ccf-mosaic").onclick = function (e) { var t = e.target.closest(".tile"); if (t) focusRow(t.getAttribute("data-t")); };
     $("ccf-seg").onclick = function (e) { var b = e.target.closest("button[data-f]"); if (!b) return; filter = b.getAttribute("data-f"); rerender(); };
     $("ccf-stdreset").onclick = function () {
-      custom = false; ignored = {}; std = majorityStandard();
-      try { localStorage.removeItem(storeKey()); } catch (e) {}
-      recompute(); renderAll();
+      var free = params.filter(function (p) { return !(p.path in std); });
+      if (!free.length) return;
+      free.forEach(function (p) { var d = distribution(p.path); if (d.length) std[p.path] = d[0].s; });
+      saveStandard(); recompute(); renderAll();
     };
     var toggleParam = function (el) {
       var p = el.getAttribute("data-p");
@@ -780,18 +856,23 @@ geotab.addin.cameraConfig = function () {
       if (paramFilter) filter = "all";
       renderParams(); rerender();
     };
+    var useInput = function (inp) {
+      var k = inp.getAttribute("data-in"), raw = inp.value.trim();
+      if (raw === "") { setStandard(k, undefined); return; }
+      if (inp.getAttribute("data-kind") === "num") { var n = Number(raw); if (isNaN(n)) { inp.focus(); return; } setStandard(k, n); }
+      else setStandard(k, raw);
+    };
     $("ccf-params").onclick = function (e) {
+      var el = e.target.closest(".prm"); if (!el) return;
+      var b = e.target.closest("button[data-v]"), u = e.target.closest("button[data-use]");
+      if (b) { var v = b.getAttribute("data-v"); setStandard(el.getAttribute("data-p"), v === "__none" ? undefined : JSON.parse(v)); return; }
+      if (u) { useInput(el.querySelector("input[data-in]")); return; }
       if (e.target.closest(".edit")) return;
-      var el = e.target.closest(".prm"); if (el) toggleParam(el);
+      toggleParam(el);
     };
     $("ccf-params").onkeydown = function (e) {
+      if (e.key === "Enter" && e.target.matches("input[data-in]")) { e.preventDefault(); useInput(e.target); return; }
       if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("prm")) { e.preventDefault(); toggleParam(e.target); }
-    };
-    $("ccf-params").onchange = function (e) {
-      var s = e.target.closest("select[data-std]"), ig = e.target.closest("input[data-ig]");
-      if (s) std[s.getAttribute("data-std")] = s.value;
-      if (ig) { var k = ig.getAttribute("data-ig"); if (ig.checked) ignored[k] = true; else delete ignored[k]; }
-      if (s || ig) { custom = true; save(); recompute(); renderAll(); }
     };
     $("ccf-paramchip").onclick = function (e) { if (e.target.closest("#ccf-pfx")) { paramFilter = null; renderParams(); rerender(); } };
     document.querySelector("#ccf .lh").onclick = function (e) {
