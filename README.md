@@ -16,36 +16,38 @@ Se probó en la base `tsbsa`.
 2. **Nuevo add-in** y pegar el contenido de [`dist/config_addin_camaras.json`](dist/config_addin_camaras.json).
 3. Guardar y recargar. Aparece en el menú de **Mantenimiento** como **Configuración de cámaras**.
 
-Para actualizar una base que ya lo tiene, se reemplaza el contenido del add-in existente con el JSON nuevo.
+Esa configuración carga el add-in desde GitHub Pages:
+`https://apicesetti.github.io/apicesetti-camera-config-addin/cameraConfig.html`.
+Cada push a `main` actualiza el add-in en todas las bases que lo tengan instalado, sin tocar MyGeotab.
 
-## Por qué es un add-in embebido y no está en GitHub Pages
+### Respaldo: versión embebida
 
-El add-in lee la configuración de las cámaras desde `media-services.geotab.com`, el mismo servicio que usa la pantalla de cámaras de MyGeotab. Ese servicio rechaza por CORS las llamadas que salen de otros dominios, incluido `github.io`. Por eso el HTML va **embebido** en el JSON de configuración y corre desde el dominio de MyGeotab.
-
-GitHub se usa como repositorio del código; la instalación siempre es con el JSON de `dist/`.
+[`dist/config_addin_camaras_embebido.json`](dist/config_addin_camaras_embebido.json) lleva el HTML adentro del JSON y no depende de GitHub. Sirve si una base no puede cargar páginas externas. Con cada cambio hay que volver a pegarlo en cada base.
 
 ## Cómo hacer cambios
 
-1. Editar [`src/cameraConfig.html`](src/cameraConfig.html) (HTML, CSS y JS en un solo archivo).
-2. Generar el JSON con la nueva versión:
+1. Editar [`cameraConfig.html`](cameraConfig.html) (HTML, CSS y JS en un solo archivo).
+2. Si el cambio es relevante, subir la versión y regenerar los JSON:
 
    ```bash
-   python build.py 1.2.0
+   python build.py 1.3.0
    ```
 
    Sin argumento, usa la versión que figura en `VERSION`.
-3. Commitear `src/`, `VERSION` y `dist/` juntos, e instalar el JSON nuevo en las bases.
+3. Commitear y hacer push a `main`. GitHub Pages publica el cambio en uno o dos minutos.
 
-El nombre de la función del add-in (`geotab.addin.cameraConfig`) tiene que coincidir con el nombre del archivo `cameraConfig.html`; `build.py` lo verifica.
+Detalles a tener en cuenta:
 
-Los estilos están en la constante `CSS` dentro del script, no en un `<style>` del `<head>`: MyGeotab descarta el `<head>` de los add-ins embebidos, así que cualquier cosa que se ponga ahí no llega a la página.
+- El nombre de la función del add-in (`geotab.addin.cameraConfig`) tiene que coincidir con el nombre del archivo `cameraConfig.html`; `build.py` lo verifica.
+- Los estilos están en la constante `CSS` dentro del script, no en un `<style>` del `<head>`: en la versión embebida MyGeotab descarta el `<head>`, así que cualquier cosa que se ponga ahí no llega a la página.
+- Para el JSON embebido, `build.py` convierte el CSS a una cadena común y escapa acentos y símbolos. Una versión con el CSS entre comillas invertidas fue rechazada por MyGeotab con "El objeto de configuración no es válido".
 
 ## Cómo funciona por dentro
 
 | Qué | Cómo |
 |---|---|
 | Sesión | `api.getSession(callback, false)` — el segundo parámetro es booleano, no un callback de error. |
-| Autenticación con media-services | Headers `X-MyGeotab-Database`, `X-MyGeotab-Username`, `X-MyGeotab-SessionId` y `X-MyGeotab-Path` con los datos de la sesión. No hace falta token Bearer. |
+| Autenticación con media-services | Headers `X-MyGeotab-Database` (con `encodeURIComponent`), `X-MyGeotab-Username`, `X-MyGeotab-SessionId` y `X-MyGeotab-Path` con los datos de la sesión del usuario. No hace falta ningún token ni secreto guardado en el código. |
 | Lista de cámaras | `GET https://media-services.geotab.com/api/DeviceMappings` |
 | Configuración de una cámara | `GET https://media-services.geotab.com/api/Surfsight/DeviceSettings/{imei}` |
 | Cambio de configuración | `PATCH https://media-services.geotab.com/api/Surfsight/DeviceSettings` con `{"imeis":[...],"config":{"param":{"value":x}}}` |

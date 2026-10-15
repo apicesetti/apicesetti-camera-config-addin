@@ -327,7 +327,7 @@ geotab.addin.cameraConfig = function () {
         if (!cred || !cred.sessionId) { reject(new Error("No se pudo obtener la sesión de MyGeotab. Volvé a iniciar sesión y actualizá.")); return; }
         db = cred.database;
         resolve({
-          "X-MyGeotab-Database": cred.database,
+          "X-MyGeotab-Database": encodeURIComponent(cred.database),
           "X-MyGeotab-Username": cred.userName,
           "X-MyGeotab-SessionId": cred.sessionId,
           "X-MyGeotab-Path": server || "my.geotab.com"

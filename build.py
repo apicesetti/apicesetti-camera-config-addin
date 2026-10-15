@@ -1,12 +1,15 @@
-"""Genera el JSON de instalación del add-in para MyGeotab.
+"""Genera los JSON de instalación del add-in para MyGeotab.
 
-El add-in se instala como "embebido": el HTML va dentro del JSON de configuración,
-así corre desde el dominio de MyGeotab. Alojarlo en GitHub Pages no funciona porque
-media-services.geotab.com bloquea por CORS las llamadas desde github.io.
+Hay dos formas de instalarlo:
+
+- dist/config_addin_camaras.json (recomendada): el add-in se carga desde GitHub Pages.
+  Para actualizar todas las bases alcanza con hacer push a main; no hay que tocar MyGeotab.
+- dist/config_addin_camaras_embebido.json (respaldo): el HTML va dentro del JSON y no
+  depende de GitHub. Hay que volver a pegarlo en cada base con cada cambio.
 
 Uso:
-    python build.py            -> dist/config_addin_camaras.json con la versión de VERSION
-    python build.py 1.2.0      -> actualiza VERSION y genera el JSON con esa versión
+    python build.py            -> genera ambos JSON con la versión de VERSION
+    python build.py 1.2.0      -> actualiza VERSION y genera ambos JSON con esa versión
 """
 import json
 import pathlib
@@ -14,9 +17,41 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent
-SRC = ROOT / "src" / "cameraConfig.html"
+SRC = ROOT / "cameraConfig.html"
 VERSION_FILE = ROOT / "VERSION"
-OUT = ROOT / "dist" / "config_addin_camaras.json"
+DIST = ROOT / "dist"
+PAGES_URL = "https://apicesetti.github.io/apicesetti-camera-config-addin/cameraConfig.html"
+
+ITEM = {
+    "path": "EngineMaintenanceLink/",
+    "menuName": {"es": "Configuración de cámaras", "en": "Camera configuration"},
+}
+
+
+def base_config(version: str) -> dict:
+    return {
+        "name": "Configuración de cámaras",
+        "supportEmail": "soporte@cesetti.com.ar",
+        "version": version,
+        "isSigned": False,
+    }
+
+
+def embeddable(html: str) -> str:
+    # MyGeotab rechazó ("El objeto de configuración no es válido") una versión embebida con el
+    # CSS en un template literal de JS. Para el JSON embebido se convierte a una cadena común.
+    m = re.search(r"var CSS = `(.*?)`;", html, re.S)
+    if m:
+        html = html[:m.start()] + "var CSS = " + json.dumps(m.group(1), ensure_ascii=True) + ";" + html[m.end():]
+    if "`" in html:
+        sys.exit("Quedan comillas invertidas (`) en el HTML; MyGeotab puede rechazar la configuración embebida.")
+    return html
+
+
+def write(path: pathlib.Path, config: dict) -> None:
+    # ensure_ascii=True: acentos y símbolos van como \uXXXX, así el JSON es ASCII puro.
+    path.write_text(json.dumps(config, ensure_ascii=True, indent=2) + "\n", encoding="ascii")
+    print(f"Generado {path.relative_to(ROOT)} ({path.stat().st_size // 1024 or 1} KB)")
 
 
 def main() -> None:
@@ -29,34 +64,19 @@ def main() -> None:
 
     html = SRC.read_text(encoding="utf-8")
     if "geotab.addin.cameraConfig" not in html:
-        sys.exit("src/cameraConfig.html tiene que registrar geotab.addin.cameraConfig "
-                 "(el nombre tiene que coincidir con el archivo cameraConfig.html).")
+        sys.exit("cameraConfig.html tiene que registrar geotab.addin.cameraConfig "
+                 "(el nombre tiene que coincidir con el nombre del archivo).")
 
-    # MyGeotab rechazó ("El objeto de configuración no es válido") una versión con el CSS
-    # en un template literal de JS. Para el JSON de instalación se convierte a una cadena común.
-    m = re.search(r"var CSS = `(.*?)`;", html, re.S)
-    if m:
-        html = html[:m.start()] + "var CSS = " + json.dumps(m.group(1), ensure_ascii=True) + ";" + html[m.end():]
-    if "`" in html:
-        sys.exit("Quedan comillas invertidas (`) en el HTML; MyGeotab puede rechazar la configuración.")
+    DIST.mkdir(exist_ok=True)
+    hosted = base_config(version)
+    hosted["items"] = [dict(ITEM, url=PAGES_URL)]
+    write(DIST / "config_addin_camaras.json", hosted)
 
-    config = {
-        "name": "Configuración de cámaras",
-        "supportEmail": "soporte@cesetti.com.ar",
-        "version": version,
-        "items": [{
-            "url": "cameraConfig.html",
-            "path": "EngineMaintenanceLink/",
-            "menuName": {"es": "Configuración de cámaras", "en": "Camera configuration"},
-        }],
-        "files": {"cameraConfig.html": html},
-        "isSigned": False,
-    }
-
-    OUT.parent.mkdir(exist_ok=True)
-    # ensure_ascii=True: acentos y símbolos van como \uXXXX, así el JSON es ASCII puro.
-    OUT.write_text(json.dumps(config, ensure_ascii=True, indent=2) + "\n", encoding="ascii")
-    print(f"Generado {OUT.relative_to(ROOT)} (versión {version}, {OUT.stat().st_size // 1024} KB)")
+    embedded = base_config(version)
+    embedded["items"] = [dict(ITEM, url="cameraConfig.html")]
+    embedded["files"] = {"cameraConfig.html": embeddable(html)}
+    write(DIST / "config_addin_camaras_embebido.json", embedded)
+    print(f"Versión {version}")
 
 
 if __name__ == "__main__":
