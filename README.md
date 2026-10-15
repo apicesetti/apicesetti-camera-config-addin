@@ -38,6 +38,8 @@ GitHub se usa como repositorio del código; la instalación siempre es con el JS
 
 El nombre de la función del add-in (`geotab.addin.cameraConfig`) tiene que coincidir con el nombre del archivo `cameraConfig.html`; `build.py` lo verifica.
 
+Los estilos están en la constante `CSS` dentro del script, no en un `<style>` del `<head>`: MyGeotab descarta el `<head>` de los add-ins embebidos, así que cualquier cosa que se ponga ahí no llega a la página.
+
 ## Cómo funciona por dentro
 
 | Qué | Cómo |
