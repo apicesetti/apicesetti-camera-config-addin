@@ -4,10 +4,98 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Configuración de cámaras</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
+</head>
+<body>
+<div id="ccf">
+
+  <div class="head">
+    <div class="head-text">
+      <h1 class="headline" id="ccf-headline">Leyendo la configuración de las cámaras…</h1>
+      <p class="lede" id="ccf-lede">Cada cámara Surfsight se compara contra el estándar de la flota.</p>
+    </div>
+    <div class="head-actions">
+      <button class="btn" id="ccf-csv">Exportar CSV</button>
+      <button class="btn primary" id="ccf-reload">Actualizar</button>
+    </div>
+  </div>
+
+  <div id="ccf-msg" class="msg"></div>
+
+  <section class="fleet" aria-label="Estado de cada cámara">
+    <div class="meter" id="ccf-meter"><div id="ccf-bar"></div></div>
+    <div class="mosaic" id="ccf-mosaic"></div>
+    <div class="legend">
+      <span><i style="background:var(--ok);opacity:.32"></i>Conforme</span>
+      <span><i style="background:var(--dev1)"></i>1 desvío</span>
+      <span><i style="background:var(--dev)"></i>2 o más desvíos</span>
+      <span><i style="background:var(--na)"></i>Sin lectura</span>
+    </div>
+  </section>
+
+  <div class="body">
+    <aside class="side" aria-label="Estándar de configuración">
+      <div class="side-h">
+        <h2>Estándar de la flota</h2>
+        <p id="ccf-stdnote">El valor que tiene la mayoría de las cámaras. Elegí un parámetro para filtrar o cambiar su estándar.</p>
+      </div>
+      <div class="side-b" id="ccf-params"></div>
+      <div class="side-f">
+        <span id="ccf-stdcount"></span>
+        <button class="linkbtn" id="ccf-stdreset">Volver al valor de la mayoría</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="bar">
+        <div class="seg" id="ccf-seg" role="tablist">
+          <button data-f="dev" class="on">Con desvíos<b id="ccf-n-dev">–</b></button>
+          <button data-f="all">Todas<b id="ccf-n-all">–</b></button>
+          <button data-f="ok">Conformes<b id="ccf-n-ok">–</b></button>
+          <button data-f="err">Sin lectura<b id="ccf-n-err">–</b></button>
+        </div>
+        <input type="search" class="field" id="ccf-q" placeholder="Vehículo, patente o IMEI">
+        <select class="field" id="ccf-status" aria-label="Conexión">
+          <option value="">Cualquier conexión</option>
+          <option value="online">Online</option>
+          <option value="standby">Standby</option>
+          <option value="offline">Offline</option>
+        </select>
+        <span id="ccf-paramchip"></span>
+      </div>
+
+      <div class="list">
+        <div class="lh">
+          <span><input type="checkbox" id="ccf-all" aria-label="Seleccionar las cámaras corregibles"></span>
+          <span data-s="vehicle">Vehículo</span>
+          <span data-s="imei" class="c-cam">Cámara</span>
+          <span data-s="status" class="c-conn">Conexión</span>
+          <span data-s="ndev">Diferencias con el estándar</span>
+          <span class="acts"><button class="btn sm fix" id="ccf-bulk" disabled>Aplicar estándar</button></span>
+        </div>
+        <div id="ccf-body"><div class="empty">Cargando cámaras…</div></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-bg" id="ccf-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ccf-m-title">
+      <h3 id="ccf-m-title"></h3>
+      <div id="ccf-m-body"></div>
+      <div class="acts head-actions" style="justify-content:flex-end">
+        <button class="btn" id="ccf-m-cancel">Cancelar</button>
+        <button class="btn primary" id="ccf-m-ok">Aplicar estándar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+geotab.addin.cameraConfig = function () {
+  "use strict";
+
+  // MyGeotab descarta el <head> de los add-ins embebidos, así que los estilos y la tipografía
+  // se inyectan desde acá en vez de ir en un <style> del HTML.
+  var CSS = `
   #ccf {
     --ink:#1B2A3A; --ink2:#4A5B6C; --ink3:#7C8A98; --line:#E1E6EB; --line2:#CDD5DD;
     --surface:#F3F5F7; --paper:#FFFFFF; --blue:#2563A8; --bluebg:#EAF1FA;
@@ -170,95 +258,19 @@
   #ccf .modal li:last-child { border-bottom:none; }
   #ccf .modal li b { font-weight:600; }
   #ccf .modal .acts { margin-top:16px; }
-</style>
-</head>
-<body>
-<div id="ccf">
-
-  <div class="head">
-    <div class="head-text">
-      <h1 class="headline" id="ccf-headline">Leyendo la configuración de las cámaras…</h1>
-      <p class="lede" id="ccf-lede">Cada cámara Surfsight se compara contra el estándar de la flota.</p>
-    </div>
-    <div class="head-actions">
-      <button class="btn" id="ccf-csv">Exportar CSV</button>
-      <button class="btn primary" id="ccf-reload">Actualizar</button>
-    </div>
-  </div>
-
-  <div id="ccf-msg" class="msg"></div>
-
-  <section class="fleet" aria-label="Estado de cada cámara">
-    <div class="meter" id="ccf-meter"><div id="ccf-bar"></div></div>
-    <div class="mosaic" id="ccf-mosaic"></div>
-    <div class="legend">
-      <span><i style="background:var(--ok);opacity:.32"></i>Conforme</span>
-      <span><i style="background:var(--dev1)"></i>1 desvío</span>
-      <span><i style="background:var(--dev)"></i>2 o más desvíos</span>
-      <span><i style="background:var(--na)"></i>Sin lectura</span>
-    </div>
-  </section>
-
-  <div class="body">
-    <aside class="side" aria-label="Estándar de configuración">
-      <div class="side-h">
-        <h2>Estándar de la flota</h2>
-        <p id="ccf-stdnote">El valor que tiene la mayoría de las cámaras. Elegí un parámetro para filtrar o cambiar su estándar.</p>
-      </div>
-      <div class="side-b" id="ccf-params"></div>
-      <div class="side-f">
-        <span id="ccf-stdcount"></span>
-        <button class="linkbtn" id="ccf-stdreset">Volver al valor de la mayoría</button>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div class="bar">
-        <div class="seg" id="ccf-seg" role="tablist">
-          <button data-f="dev" class="on">Con desvíos<b id="ccf-n-dev">–</b></button>
-          <button data-f="all">Todas<b id="ccf-n-all">–</b></button>
-          <button data-f="ok">Conformes<b id="ccf-n-ok">–</b></button>
-          <button data-f="err">Sin lectura<b id="ccf-n-err">–</b></button>
-        </div>
-        <input type="search" class="field" id="ccf-q" placeholder="Vehículo, patente o IMEI">
-        <select class="field" id="ccf-status" aria-label="Conexión">
-          <option value="">Cualquier conexión</option>
-          <option value="online">Online</option>
-          <option value="standby">Standby</option>
-          <option value="offline">Offline</option>
-        </select>
-        <span id="ccf-paramchip"></span>
-      </div>
-
-      <div class="list">
-        <div class="lh">
-          <span><input type="checkbox" id="ccf-all" aria-label="Seleccionar las cámaras corregibles"></span>
-          <span data-s="vehicle">Vehículo</span>
-          <span data-s="imei" class="c-cam">Cámara</span>
-          <span data-s="status" class="c-conn">Conexión</span>
-          <span data-s="ndev">Diferencias con el estándar</span>
-          <span class="acts"><button class="btn sm fix" id="ccf-bulk" disabled>Aplicar estándar</button></span>
-        </div>
-        <div id="ccf-body"><div class="empty">Cargando cámaras…</div></div>
-      </div>
-    </main>
-  </div>
-
-  <div class="modal-bg" id="ccf-modal">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ccf-m-title">
-      <h3 id="ccf-m-title"></h3>
-      <div id="ccf-m-body"></div>
-      <div class="acts head-actions" style="justify-content:flex-end">
-        <button class="btn" id="ccf-m-cancel">Cancelar</button>
-        <button class="btn primary" id="ccf-m-ok">Aplicar estándar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-geotab.addin.cameraConfig = function () {
-  "use strict";
+`;
+  function injectStyles() {
+    if (!document.getElementById("ccf-styles")) {
+      var st = document.createElement("style"); st.id = "ccf-styles"; st.textContent = CSS;
+      document.head.appendChild(st);
+    }
+    if (!document.getElementById("ccf-font")) {
+      var ln = document.createElement("link"); ln.id = "ccf-font"; ln.rel = "stylesheet";
+      ln.href = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap";
+      document.head.appendChild(ln);
+    }
+  }
+  injectStyles();
 
   var MS = "https://media-services.geotab.com/api";
   var CONCURRENCY = 6;
@@ -806,7 +818,7 @@ geotab.addin.cameraConfig = function () {
   }
 
   return {
-    initialize: function (freshApi, state, callback) { api = freshApi; bind(); callback(); },
+    initialize: function (freshApi, state, callback) { api = freshApi; injectStyles(); bind(); callback(); },
     focus: function (freshApi) { api = freshApi; load(); },
     blur: function () { loadToken++; closeModal(); }
   };
