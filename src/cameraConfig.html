@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuración de cámaras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  #ccf {
+    --ink:#1B2A3A; --ink2:#4A5B6C; --ink3:#7C8A98; --line:#E1E6EB; --line2:#CDD5DD;
+    --surface:#F3F5F7; --paper:#FFFFFF; --blue:#2563A8; --bluebg:#EAF1FA;
+    --ok:#2F8F6B; --okbg:#E7F3EE; --dev:#D1423A; --dev1:#E8928C; --devbg:#FBEBEA; --na:#C08A1E; --nabg:#FBF3E2;
+    --idle:#DDE2E8;
+    font-family:"IBM Plex Sans", "Segoe UI", Roboto, Arial, sans-serif; font-size:14px; line-height:1.45;
+    color:var(--ink); background:var(--surface); min-height:100vh; padding:24px 28px 40px;
+    font-variant-numeric:tabular-nums;
+  }
+  #ccf *, #ccf *::before, #ccf *::after { box-sizing:border-box; }
+  #ccf button, #ccf input, #ccf select { font:inherit; color:inherit; }
+  #ccf :focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+
+  /* ---------- encabezado ---------- */
+  #ccf .head { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  #ccf .head-text { flex:1 1 420px; min-width:0; }
+  #ccf .headline { font-size:30px; line-height:1.15; font-weight:600; letter-spacing:-.01em; margin:0; }
+  #ccf .headline.ok { color:var(--ok); }
+  #ccf .headline.dev { color:var(--ink); }
+  #ccf .headline .n { color:var(--dev); }
+  #ccf .lede { margin:6px 0 0; color:var(--ink2); }
+  #ccf .head-actions { display:flex; gap:8px; }
+
+  #ccf .btn { height:34px; padding:0 14px; border-radius:6px; border:1px solid var(--line2); background:var(--paper); cursor:pointer; font-weight:500; white-space:nowrap; }
+  #ccf .btn:hover { border-color:var(--ink3); }
+  #ccf .btn.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+  #ccf .btn.primary:hover { background:#1E548F; }
+  #ccf .btn:disabled { opacity:.45; cursor:default; }
+  #ccf .btn.sm { height:28px; padding:0 10px; font-size:13px; }
+  #ccf .btn.fix { color:var(--blue); border-color:#BFD3EA; }
+  #ccf .linkbtn { border:none; background:none; color:var(--blue); cursor:pointer; padding:0; font-weight:500; }
+
+  #ccf .msg { padding:10px 14px; border-radius:6px; margin-bottom:16px; display:none; }
+  #ccf .msg.err { display:block; background:var(--devbg); color:#9B2C25; }
+  #ccf .msg.info { display:block; background:var(--bluebg); color:#1B4C82; }
+
+  /* ---------- mosaico de la flota ---------- */
+  #ccf .fleet { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:16px 18px 14px; margin-bottom:20px; }
+  #ccf .mosaic { display:flex; flex-wrap:wrap; gap:3px; }
+  #ccf .tile { width:13px; height:13px; border-radius:2px; background:var(--idle); border:none; padding:0; cursor:pointer; }
+  #ccf .tile.ok { background:var(--ok); opacity:.32; }
+  #ccf .tile.d1 { background:var(--dev1); }
+  #ccf .tile.d2 { background:var(--dev); }
+  #ccf .tile.na { background:var(--na); }
+  #ccf .tile:hover { outline:2px solid var(--ink); outline-offset:1px; opacity:1; }
+  #ccf .legend { display:flex; gap:18px; flex-wrap:wrap; margin-top:12px; color:var(--ink2); font-size:13px; }
+  #ccf .legend span { display:inline-flex; align-items:center; gap:6px; }
+  #ccf .legend i { width:11px; height:11px; border-radius:2px; display:inline-block; }
+  #ccf .meter { height:3px; background:var(--line); border-radius:2px; overflow:hidden; margin:-6px 0 14px; display:none; }
+  #ccf .meter.on { display:block; }
+  #ccf .meter > div { height:100%; width:0; background:var(--blue); transition:width .25s; }
+
+  /* ---------- cuerpo en dos columnas ---------- */
+  #ccf .body { display:grid; grid-template-columns:minmax(280px, 340px) minmax(0, 1fr); gap:20px; align-items:start; }
+  @media (max-width: 980px) { #ccf .body { grid-template-columns:1fr; } #ccf .main { order:-1; } }
+
+  #ccf .side { background:var(--paper); border:1px solid var(--line); border-radius:10px; position:sticky; top:12px; max-height:calc(100vh - 24px); display:flex; flex-direction:column; }
+  @media (max-width: 980px) { #ccf .side { position:static; max-height:none; } }
+  #ccf .side-h { padding:14px 16px 10px; border-bottom:1px solid var(--line); }
+  #ccf .side-h h2 { font-size:15px; font-weight:600; margin:0; }
+  #ccf .side-h p { margin:3px 0 0; color:var(--ink3); font-size:12.5px; }
+  #ccf .side-b { overflow:auto; padding:4px 0 10px; }
+  #ccf .grp { padding:10px 16px 2px; color:var(--ink3); font-size:12.5px; font-weight:500; }
+  #ccf .prm { display:grid; grid-template-columns:1fr auto; gap:2px 10px; padding:7px 16px; cursor:pointer; border-left:3px solid transparent; }
+  #ccf .prm:hover { background:#F8FAFB; }
+  #ccf .prm.sel { background:var(--bluebg); border-left-color:var(--blue); }
+  #ccf .prm.ig { opacity:.45; }
+  #ccf .prm .nm { font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #ccf .prm .cnt { font-weight:600; color:var(--dev); text-align:right; }
+  #ccf .prm .cnt.zero { color:var(--ok); font-weight:500; }
+  #ccf .prm .row2 { grid-column:1 / -1; display:flex; align-items:center; gap:8px; color:var(--ink2); font-size:12.5px; }
+  #ccf .prm .stdv { white-space:nowrap; }
+  #ccf .prm .track { flex:1; height:4px; background:var(--okbg); border-radius:2px; overflow:hidden; }
+  #ccf .prm .track > div { height:100%; background:var(--dev); }
+  #ccf .prm .edit { display:none; grid-column:1 / -1; gap:10px; align-items:center; padding-top:6px; }
+  #ccf .prm.sel .edit { display:flex; }
+  #ccf .prm select { height:28px; border:1px solid var(--line2); border-radius:5px; background:var(--paper); padding:0 6px; max-width:190px; }
+  #ccf .prm label { display:inline-flex; gap:5px; align-items:center; font-size:12.5px; color:var(--ink2); cursor:pointer; }
+  #ccf .side-f { border-top:1px solid var(--line); padding:10px 16px; font-size:12.5px; color:var(--ink3); display:flex; justify-content:space-between; gap:10px; }
+
+  /* ---------- lista de cámaras ---------- */
+  #ccf .main { min-width:0; }
+  #ccf .bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  #ccf .seg { display:inline-flex; background:var(--paper); border:1px solid var(--line2); border-radius:7px; padding:2px; }
+  #ccf .seg button { border:none; background:none; height:28px; padding:0 11px; border-radius:5px; cursor:pointer; color:var(--ink2); white-space:nowrap; }
+  #ccf .seg button b { font-weight:600; margin-left:4px; }
+  #ccf .seg button.on { background:var(--ink); color:#fff; }
+  #ccf .seg button.on b { color:#fff; }
+  #ccf .field { height:34px; border:1px solid var(--line2); border-radius:6px; background:var(--paper); padding:0 10px; }
+  #ccf input.field { flex:1 1 200px; min-width:160px; max-width:320px; }
+  #ccf .chip { display:inline-flex; align-items:center; gap:6px; background:var(--bluebg); color:#1B4C82; border-radius:6px; height:30px; padding:0 4px 0 10px; font-size:13px; }
+  #ccf .chip button { border:none; background:none; width:22px; height:22px; border-radius:4px; cursor:pointer; color:inherit; font-size:15px; line-height:1; }
+  #ccf .chip button:hover { background:#D5E3F5; }
+  #ccf .spacer { flex:1; }
+
+  #ccf .list { background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  #ccf .lh, #ccf .cam { display:grid; grid-template-columns:30px minmax(160px, 1.1fr) minmax(150px, .9fr) 118px minmax(240px, 2.3fr) 214px; gap:12px; align-items:start; padding:11px 16px; }
+  #ccf .lh { background:#F8FAFB; border-bottom:1px solid var(--line); color:var(--ink3); font-size:12.5px; font-weight:500; padding-top:9px; padding-bottom:9px; align-items:center; }
+  #ccf .lh [data-s] { cursor:pointer; user-select:none; }
+  #ccf .lh [data-s]:hover { color:var(--ink); }
+  #ccf .lh .sorted { color:var(--ink); }
+  #ccf .cam { border-bottom:1px solid var(--line); }
+  #ccf .cam:last-child { border-bottom:none; }
+  #ccf .cam.hasdev { box-shadow:inset 3px 0 0 var(--dev); }
+  #ccf .cam.flash { animation:ccfflash 1.2s ease-out; }
+  @keyframes ccfflash { from { background:#FFF4CC; } to { background:transparent; } }
+  @media (prefers-reduced-motion: reduce) { #ccf .cam.flash { animation:none; } #ccf .meter > div { transition:none; } }
+  #ccf .t1 { font-weight:500; }
+  #ccf .t1 a { color:var(--ink); text-decoration:none; }
+  #ccf .t1 a:hover { color:var(--blue); text-decoration:underline; }
+  #ccf .t2 { color:var(--ink3); font-size:12.5px; }
+  #ccf .conn { display:inline-flex; align-items:center; gap:6px; }
+  #ccf .dot { width:8px; height:8px; border-radius:50%; background:#A8B3BE; display:inline-block; }
+  #ccf .dot.online { background:var(--ok); } #ccf .dot.standby { background:#E0A526; }
+  #ccf .devs { display:flex; flex-wrap:wrap; gap:5px; }
+  #ccf .c-dev { min-width:0; }
+  #ccf .dv > span { white-space:nowrap; }
+  #ccf .dv { max-width:100%; flex-wrap:wrap; display:inline-flex; gap:0 6px; align-items:baseline; background:var(--devbg); border-radius:5px; padding:2px 8px; font-size:12.5px; }
+  #ccf .dv .k { color:var(--ink); }
+  #ccf .dv .v { color:var(--dev); font-weight:600; }
+  #ccf .dv .s { color:var(--ink3); }
+  #ccf .state { font-size:13px; font-weight:500; }
+  #ccf .state.ok { color:var(--ok); }
+  #ccf .state.na { color:var(--na); }
+  #ccf .state.load { color:var(--ink3); font-weight:400; }
+  #ccf .acts { display:flex; gap:6px; justify-content:flex-end; }
+  #ccf .empty { padding:28px 16px; color:var(--ink2); text-align:center; }
+
+  #ccf .detail { grid-column:2 / -1; margin-top:8px; padding:12px 14px; background:var(--surface); border-radius:8px; display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:14px 22px; }
+  #ccf .detail h4 { margin:0 0 4px; font-size:12.5px; font-weight:600; color:var(--ink2); }
+  #ccf .kv { display:flex; justify-content:space-between; gap:12px; padding:3px 0; font-size:13px; border-bottom:1px dashed var(--line); }
+  #ccf .kv:last-child { border-bottom:none; }
+  #ccf .kv .k { color:var(--ink2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #ccf .kv .v { white-space:nowrap; font-weight:500; }
+  #ccf .kv.d .v { color:var(--dev); }
+  #ccf .kv.d .k { color:var(--ink); }
+  #ccf .kv.ig { opacity:.5; }
+
+  @media (max-width: 760px) {
+    #ccf { padding:16px; }
+    #ccf .headline { font-size:24px; }
+    #ccf .mosaic { gap:2px; }
+    #ccf .tile { width:8px; height:8px; border-radius:1px; }
+    #ccf .seg { max-width:100%; overflow-x:auto; }
+    #ccf .cam > .acts { grid-column:2 / -1; justify-content:flex-start; }
+    #ccf .lh { display:none; }
+    #ccf .cam { grid-template-columns:28px 1fr auto; }
+    #ccf .cam > .c-cam, #ccf .cam > .c-conn { display:none; }
+    #ccf .cam > .c-dev { grid-column:2 / -1; }
+    #ccf .detail { grid-column:1 / -1; }
+  }
+
+  /* ---------- confirmación ---------- */
+  #ccf .modal-bg { position:fixed; inset:0; background:rgba(27,42,58,.4); display:none; align-items:center; justify-content:center; z-index:20; padding:16px; }
+  #ccf .modal { background:var(--paper); border-radius:12px; padding:22px 22px 18px; width:min(540px, 100%); max-height:calc(100vh - 32px); overflow:auto; box-shadow:0 18px 50px rgba(27,42,58,.25); }
+  #ccf .modal h3 { font-size:18px; font-weight:600; margin:0 0 8px; }
+  #ccf .modal p { margin:6px 0; color:var(--ink2); }
+  #ccf .modal ul { margin:10px 0; padding:0; list-style:none; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
+  #ccf .modal li { padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px; }
+  #ccf .modal li:last-child { border-bottom:none; }
+  #ccf .modal li b { font-weight:600; }
+  #ccf .modal .acts { margin-top:16px; }
+</style>
+</head>
+<body>
+<div id="ccf">
+
+  <div class="head">
+    <div class="head-text">
+      <h1 class="headline" id="ccf-headline">Leyendo la configuración de las cámaras…</h1>
+      <p class="lede" id="ccf-lede">Cada cámara Surfsight se compara contra el estándar de la flota.</p>
+    </div>
+    <div class="head-actions">
+      <button class="btn" id="ccf-csv">Exportar CSV</button>
+      <button class="btn primary" id="ccf-reload">Actualizar</button>
+    </div>
+  </div>
+
+  <div id="ccf-msg" class="msg"></div>
+
+  <section class="fleet" aria-label="Estado de cada cámara">
+    <div class="meter" id="ccf-meter"><div id="ccf-bar"></div></div>
+    <div class="mosaic" id="ccf-mosaic"></div>
+    <div class="legend">
+      <span><i style="background:var(--ok);opacity:.32"></i>Conforme</span>
+      <span><i style="background:var(--dev1)"></i>1 desvío</span>
+      <span><i style="background:var(--dev)"></i>2 o más desvíos</span>
+      <span><i style="background:var(--na)"></i>Sin lectura</span>
+    </div>
+  </section>
+
+  <div class="body">
+    <aside class="side" aria-label="Estándar de configuración">
+      <div class="side-h">
+        <h2>Estándar de la flota</h2>
+        <p id="ccf-stdnote">El valor que tiene la mayoría de las cámaras. Elegí un parámetro para filtrar o cambiar su estándar.</p>
+      </div>
+      <div class="side-b" id="ccf-params"></div>
+      <div class="side-f">
+        <span id="ccf-stdcount"></span>
+        <button class="linkbtn" id="ccf-stdreset">Volver al valor de la mayoría</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="bar">
+        <div class="seg" id="ccf-seg" role="tablist">
+          <button data-f="dev" class="on">Con desvíos<b id="ccf-n-dev">–</b></button>
+          <button data-f="all">Todas<b id="ccf-n-all">–</b></button>
+          <button data-f="ok">Conformes<b id="ccf-n-ok">–</b></button>
+          <button data-f="err">Sin lectura<b id="ccf-n-err">–</b></button>
+        </div>
+        <input type="search" class="field" id="ccf-q" placeholder="Vehículo, patente o IMEI">
+        <select class="field" id="ccf-status" aria-label="Conexión">
+          <option value="">Cualquier conexión</option>
+          <option value="online">Online</option>
+          <option value="standby">Standby</option>
+          <option value="offline">Offline</option>
+        </select>
+        <span id="ccf-paramchip"></span>
+      </div>
+
+      <div class="list">
+        <div class="lh">
+          <span><input type="checkbox" id="ccf-all" aria-label="Seleccionar las cámaras corregibles"></span>
+          <span data-s="vehicle">Vehículo</span>
+          <span data-s="imei" class="c-cam">Cámara</span>
+          <span data-s="status" class="c-conn">Conexión</span>
+          <span data-s="ndev">Diferencias con el estándar</span>
+          <span class="acts"><button class="btn sm fix" id="ccf-bulk" disabled>Aplicar estándar</button></span>
+        </div>
+        <div id="ccf-body"><div class="empty">Cargando cámaras…</div></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-bg" id="ccf-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ccf-m-title">
+      <h3 id="ccf-m-title"></h3>
+      <div id="ccf-m-body"></div>
+      <div class="acts head-actions" style="justify-content:flex-end">
+        <button class="btn" id="ccf-m-cancel">Cancelar</button>
+        <button class="btn primary" id="ccf-m-ok">Aplicar estándar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+geotab.addin.cameraConfig = function () {
+  "use strict";
+
+  var MS = "https://media-services.geotab.com/api";
+  var CONCURRENCY = 6;
+
+  // Nombres legibles y grupo de cada parámetro conocido de Surfsight. Los que no estén acá van a "Otros".
+  var LABELS = {
+    "inCabinCameraRecording": "Grabación en cabina",
+    "driverCamera": "Cámara del conductor",
+    "liveVideo": "Video en vivo",
+    "notifyLiveStreaming": "Aviso de video en vivo",
+    "voiceRecording": "Grabación de voz",
+    "recordingEncryption.enabled": "Cifrado de grabaciones",
+    "textOverlay": "Texto sobre el video",
+    "distractedDriver": "Conductor distraído",
+    "adas": "ADAS",
+    "audioAlarms": "Alarmas sonoras",
+    "pinCodeDi": "Identificación por PIN",
+    "qrDi": "Identificación por QR",
+    "driverPin": "PIN del conductor",
+    "driverPosition": "Posición del conductor",
+    "brightness": "Brillo de pantalla",
+    "speedUnits": "Unidad de velocidad",
+    "dateTimeUnits": "Formato de fecha",
+    "privacy.gpsEnabled": "GPS",
+    "privacy.mvaiEnabled": "Eventos de IA",
+    "privacy.allEventsEnabled": "Todos los eventos",
+    "privacy.liveStreamEnabled": "Video en vivo",
+    "standby.timeout": "Espera antes de standby (s)",
+    "hotSpot.internetAccess": "Internet por hotspot"
+  };
+  var GROUPS = [
+    ["Video y grabación", ["inCabinCameraRecording", "driverCamera", "liveVideo", "notifyLiveStreaming", "voiceRecording", "recordingEncryption.enabled", "textOverlay"]],
+    ["Asistencia al conductor", ["distractedDriver", "adas", "audioAlarms"]],
+    ["Identificación del conductor", ["pinCodeDi", "qrDi", "driverPin", "driverPosition"]],
+    ["Pantalla y unidades", ["brightness", "speedUnits", "dateTimeUnits"]],
+    ["Privacidad", [/^privacy\./]],
+    ["Sistema", ["standby.timeout", "hotSpot.internetAccess"]]
+  ];
+  var VALUE_TEXT = { left: "Izquierda", right: "Derecha", kmh: "km/h", mph: "mph", eu: "DD/MM/AAAA", us: "MM/DD/AAAA" };
+
+  var api, headers = null, db = "", rows = [], loadToken = 0, loading = false;
+  var params = [];            // [{path, label, group, order, simple}]
+  var std = {};               // path -> valor estándar serializado (JSON)
+  var ignored = {};           // path -> true
+  var custom = false;
+  var filter = "dev", paramFilter = null, sortKey = "ndev", sortDir = -1, selected = {}, expanded = {};
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- sesión y llamadas ----------
+  function getHeaders() {
+    return new Promise(function (resolve, reject) {
+      // getSession(callback, newSession:boolean) — el 2.º parámetro es booleano
+      api.getSession(function (cred, server) {
+        if (!cred || !cred.sessionId) { reject(new Error("No se pudo obtener la sesión de MyGeotab. Volvé a iniciar sesión y actualizá.")); return; }
+        db = cred.database;
+        resolve({
+          "X-MyGeotab-Database": cred.database,
+          "X-MyGeotab-Username": cred.userName,
+          "X-MyGeotab-SessionId": cred.sessionId,
+          "X-MyGeotab-Path": server || "my.geotab.com"
+        });
+      }, false);
+    });
+  }
+
+  function ms(path, opts) {
+    opts = opts || {};
+    var h = Object.assign({}, headers, opts.body ? { "Content-Type": "application/json" } : {});
+    return fetch(MS + path, { method: opts.method || "GET", headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined })
+      .catch(function (e) {
+        var err = new Error("El navegador no pudo conectarse con el servicio de cámaras de Geotab (" + e.message + "). Revisá la conexión o si una política del navegador bloquea la llamada.");
+        err.network = true; throw err;
+      });
+  }
+
+  function apiCall(method, p) { return new Promise(function (res, rej) { api.call(method, p, res, rej); }); }
+
+  // ---------- configuración: aplanado y comparación ----------
+  function flatten(obj, prefix, out, simple) {
+    Object.keys(obj || {}).forEach(function (k) {
+      var v = obj[k], p = prefix ? prefix + "." + k : k;
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        var keys = Object.keys(v);
+        if (keys.length === 1 && keys[0] === "value") { out[p] = v.value; if (!prefix) simple[p] = true; }
+        else flatten(v, p, out, simple);
+      } else if (Array.isArray(v)) {
+        v.forEach(function (item, i) {
+          if (item && typeof item === "object") {
+            var id = item.cameraId != null ? item.cameraId : i;
+            var sub = {}; Object.keys(item).forEach(function (kk) { if (kk !== "cameraId") sub[kk] = item[kk]; });
+            flatten(sub, p + "[" + id + "]", out, simple);
+          } else out[p + "[" + i + "]"] = item;
+        });
+      } else out[p] = v;
+    });
+    return out;
+  }
+
+  function labelOf(path) {
+    if (LABELS[path]) return LABELS[path];
+    var m = path.match(/^privacy\.cameras\[(\d+)\]\.(\w+)$/);
+    if (m) return "Cámara " + m[1] + ": " + ({ recordingEnabled: "grabación", eventsEnabled: "eventos", liveStreamEnabled: "video en vivo" }[m[2]] || m[2]);
+    return path;
+  }
+  function groupOf(path) {
+    for (var g = 0; g < GROUPS.length; g++) {
+      var list = GROUPS[g][1];
+      for (var j = 0; j < list.length; j++) {
+        var it = list[j];
+        if (typeof it === "string" ? it === path : it.test(path)) return { name: GROUPS[g][0], order: g * 100 + (typeof it === "string" ? j : 50) };
+      }
+    }
+    return { name: "Otros", order: 900 };
+  }
+  var isSecret = function (path) { return /pin$/i.test(path); };
+  function fmt(path, v) {
+    if (v === undefined) return "—";
+    if (v === null) return "Sin valor";
+    if (v === true) return "Sí";
+    if (v === false) return "No";
+    if (isSecret(path)) return "••••";
+    return VALUE_TEXT[v] || String(v);
+  }
+  var ser = function (v) { return JSON.stringify(v === undefined ? null : v); };
+  var stdText = function (p) { return p in std ? fmt(p, JSON.parse(std[p])) : "—"; };
+
+  function buildParams() {
+    var seen = {}, simpleAll = {};
+    rows.forEach(function (r) { if (r.cfg) { Object.keys(r.cfg).forEach(function (k) { seen[k] = true; }); Object.keys(r.simple).forEach(function (k) { simpleAll[k] = true; }); } });
+    params = Object.keys(seen).map(function (k) { var g = groupOf(k); return { path: k, label: labelOf(k), group: g.name, order: g.order, simple: !!simpleAll[k] }; })
+      .sort(function (a, b) { return a.order - b.order || a.label.localeCompare(b.label, "es", { numeric: true }); });
+  }
+
+  function distribution(path) {
+    var counts = {};
+    rows.forEach(function (r) { if (r.cfg) { var s = ser(r.cfg[path]); counts[s] = (counts[s] || 0) + 1; } });
+    return Object.keys(counts).map(function (s) { return { s: s, n: counts[s] }; }).sort(function (a, b) { return b.n - a.n; });
+  }
+  function majorityStandard() {
+    var out = {};
+    params.forEach(function (p) { var d = distribution(p.path); if (d.length) out[p.path] = d[0].s; });
+    return out;
+  }
+
+  function storeKey() { return "ccf-standard-" + db; }
+  function loadSaved() {
+    try { var j = JSON.parse(localStorage.getItem(storeKey()) || "null"); if (j) { std = j.std || {}; ignored = j.ignored || {}; custom = true; } } catch (e) {}
+  }
+  function save() { try { localStorage.setItem(storeKey(), JSON.stringify({ std: std, ignored: ignored })); } catch (e) {} }
+
+  function computeStandard() {
+    var maj = majorityStandard();
+    if (!custom) { std = maj; return; }
+    params.forEach(function (p) { if (!(p.path in std) && maj[p.path] !== undefined) std[p.path] = maj[p.path]; });
+  }
+
+  function deviations(r) {
+    if (!r.cfg) return [];
+    return params.filter(function (p) { return !ignored[p.path] && (p.path in std) && ser(r.cfg[p.path]) !== std[p.path]; });
+  }
+  function recompute() { rows.forEach(function (r) { r.devs = deviations(r); r.ndev = r.state === "ok" ? r.devs.length : -1; }); }
+  function refreshAll() { buildParams(); computeStandard(); recompute(); renderAll(); }
+
+  // ---------- carga ----------
+  function load() {
+    var token = ++loadToken;
+    loading = true; selected = {}; expanded = {}; updateBulk(); $("ccf-all").checked = false;
+    showMsg("", "");
+    $("ccf-meter").classList.add("on"); $("ccf-bar").style.width = "0";
+    $("ccf-headline").className = "headline"; $("ccf-headline").textContent = "Leyendo la configuración de las cámaras…";
+    $("ccf-body").innerHTML = '<div class="empty">Cargando cámaras…</div>';
+
+    return getHeaders()
+      .then(function (h) {
+        headers = h;
+        if (!custom) loadSaved();
+        return Promise.all([ms("/DeviceMappings"), apiCall("Get", { typeName: "Device", propertySelector: { fields: ["id", "name", "licensePlate", "serialNumber"], isIncluded: true } })]);
+      })
+      .then(function (res) {
+        if (!res[0].ok) throw new Error("El servicio de cámaras respondió " + res[0].status + " al listar las cámaras. Actualizá para reintentar.");
+        return res[0].json().then(function (maps) { return [maps, res[1] || []]; });
+      })
+      .then(function (r) {
+        if (token !== loadToken) return;
+        var bySerial = {}, other = 0;
+        r[1].forEach(function (d) { if (d.serialNumber) bySerial[d.serialNumber] = d; });
+        rows = (r[0] || []).filter(function (m) { if (m.partnerId === "surfsight") return true; other++; return false; })
+          .map(function (m) {
+            var d = bySerial[m.associatedDeviceSerialNumber];
+            return {
+              imei: m.partnerDeviceId, go: m.associatedDeviceSerialNumber || "",
+              vehicle: d ? d.name : "", plate: d ? (d.licensePlate || "") : "", deviceId: d ? d.id : null,
+              model: (m.partnerMetaData && m.partnerMetaData.DeviceModel) || "",
+              status: m.deviceStatus || "", lastOnline: m.partnerDeviceLastOnlineAt || "",
+              cfg: null, simple: {}, state: "loading", busy: false, devs: [], ndev: -1
+            };
+          });
+        rows.otherCount = other;
+        renderAll();
+        return fetchAll(token);
+      })
+      .then(function () {
+        if (token !== loadToken) return;
+        loading = false; $("ccf-meter").classList.remove("on");
+        refreshAll();
+      })
+      .catch(function (e) {
+        if (token !== loadToken) return;
+        loading = false; $("ccf-meter").classList.remove("on");
+        $("ccf-headline").textContent = "No se pudo leer la configuración";
+        showMsg(e.message, "err");
+        $("ccf-body").innerHTML = '<div class="empty">Sin datos. Usá Actualizar para reintentar.</div>';
+      });
+  }
+
+  function fetchSettings(row) {
+    return ms("/Surfsight/DeviceSettings/" + encodeURIComponent(row.imei))
+      .then(function (r) {
+        if (!r.ok) { row.state = "err"; row.why = r.status === 401 || r.status === 403 ? "sin acceso (" + r.status + ")" : "error " + r.status; row.cfg = null; return; }
+        return r.json().then(function (j) { row.simple = {}; row.cfg = flatten(j, "", {}, row.simple); row.state = "ok"; });
+      })
+      .catch(function (e) { row.state = "err"; row.why = "sin conexión"; if (e.network) throw e; });
+  }
+
+  function fetchAll(token) {
+    var i = 0, done = 0, total = rows.length, lastPaint = 0;
+    function worker() {
+      if (token !== loadToken || i >= total) return Promise.resolve();
+      var row = rows[i++];
+      return fetchSettings(row).then(function () {
+        done++;
+        $("ccf-bar").style.width = Math.round(done / total * 100) + "%";
+        $("ccf-lede").textContent = "Leídas " + done + " de " + total + " cámaras.";
+        var now = Date.now();
+        if (now - lastPaint > 1200) { lastPaint = now; refreshAll(); }
+        return worker();
+      });
+    }
+    var ws = []; for (var k = 0; k < CONCURRENCY; k++) ws.push(worker());
+    return Promise.all(ws);
+  }
+
+  // ---------- aplicar estándar ----------
+  // Solo se corrigen parámetros simples ({"value": x} en el primer nivel): es el formato del PATCH que usa MyGeotab.
+  function patchFor(r) {
+    var cfg = {}, skipped = [];
+    r.devs.forEach(function (p) { if (p.simple) cfg[p.path] = { value: JSON.parse(std[p.path]) }; else skipped.push(p); });
+    return { cfg: cfg, n: Object.keys(cfg).length, skipped: skipped };
+  }
+
+  function confirmApply(imeis) {
+    var list = rows.filter(function (r) { return imeis.indexOf(r.imei) >= 0 && r.devs.length; });
+    var fixable = list.filter(function (r) { return patchFor(r).n > 0; });
+    var html;
+    if (!fixable.length) {
+      html = "<p>Estas diferencias son de privacidad, standby, hotspot o cifrado. Se cambian desde la configuración de la cámara en MyGeotab.</p>";
+    } else {
+      html = "<p>Estos valores se van a enviar a " + (fixable.length === 1 ? "la cámara" : "las " + fixable.length + " cámaras") + ":</p><ul>";
+      fixable.slice(0, 60).forEach(function (r) {
+        var pf = patchFor(r);
+        html += "<li><b>" + esc(r.vehicle || "Sin vehículo") + "</b>" + (r.plate ? " · " + esc(r.plate) : "") + "<br>" +
+          Object.keys(pf.cfg).map(function (k) { return esc(labelOf(k)) + ": " + esc(fmt(k, r.cfg[k])) + " → <b>" + esc(fmt(k, pf.cfg[k].value)) + "</b>"; }).join(", ") + "</li>";
+      });
+      if (fixable.length > 60) html += "<li>Y " + (fixable.length - 60) + " cámaras más</li>";
+      html += "</ul>";
+      var off = fixable.filter(function (r) { return r.status === "offline"; }).length;
+      if (off) html += "<p>" + (off === 1 ? "1 cámara está offline y recibe el cambio cuando se conecte." : off + " cámaras están offline y reciben el cambio cuando se conecten.") + "</p>";
+      var partial = fixable.filter(function (r) { return patchFor(r).skipped.length; }).length;
+      if (partial) html += "<p>Las diferencias de privacidad, standby, hotspot o cifrado no se cambian desde acá.</p>";
+    }
+    $("ccf-m-title").textContent = fixable.length ? "Aplicar el estándar" : "No hay cambios para aplicar desde acá";
+    $("ccf-m-body").innerHTML = html;
+    $("ccf-m-ok").style.display = fixable.length ? "" : "none";
+    $("ccf-m-cancel").textContent = fixable.length ? "Cancelar" : "Cerrar";
+    $("ccf-modal").style.display = "flex";
+    (fixable.length ? $("ccf-m-ok") : $("ccf-m-cancel")).focus();
+    $("ccf-m-ok").onclick = function () { closeModal(); applyStandard(fixable); };
+  }
+  function closeModal() { $("ccf-modal").style.display = "none"; }
+
+  function applyStandard(list) {
+    list.forEach(function (r) { r.busy = true; });
+    renderList();
+    var i = 0, ok = 0, fail = 0, log = [];
+    function worker() {
+      if (i >= list.length) return Promise.resolve();
+      var r = list[i++], pf = patchFor(r);
+      return ms("/Surfsight/DeviceSettings", { method: "PATCH", body: { imeis: [r.imei], config: pf.cfg } })
+        .then(function (resp) {
+          if (!resp.ok) { fail++; return; }
+          ok++; log.push((r.vehicle || r.imei) + (r.plate ? " (" + r.plate + ")" : "") + ": " + Object.keys(pf.cfg).map(function (k) { return k + "=" + JSON.stringify(pf.cfg[k].value); }).join(", "));
+          return fetchSettings(r);
+        })
+        .catch(function () { fail++; })
+        .then(function () { r.busy = false; return worker(); });
+    }
+    return Promise.all([worker(), worker(), worker()]).then(function () {
+      if (log.length) apiCall("Add", { typeName: "Audit", entity: { name: "Configuración de cámaras", comment: ("Estándar aplicado — " + log.join(" | ")).slice(0, 4000) } }).catch(function () {});
+      selected = {}; $("ccf-all").checked = false; updateBulk();
+      recompute(); renderAll();
+      var pending = list.filter(function (r) { return r.state === "ok" && patchFor(r).n > 0; }).length;
+      var m = "Estándar aplicado en " + ok + (ok === 1 ? " cámara." : " cámaras.");
+      if (fail) m += " " + fail + " no aceptaron el cambio; probá de nuevo en unos minutos.";
+      if (pending) m += " " + pending + " todavía muestran el valor anterior; si están offline, lo toman al conectarse.";
+      showMsg(m, fail ? "err" : "info");
+    });
+  }
+
+  // ---------- render ----------
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function fmtDate(s) {
+    if (!s) return "";
+    var d = new Date(s); if (isNaN(d)) return s;
+    var mins = Math.round((Date.now() - d) / 60000);
+    if (mins < 2) return "hace un momento";
+    if (mins < 60) return "hace " + mins + " min";
+    if (mins < 60 * 24) return "hace " + Math.round(mins / 60) + " h";
+    return d.toLocaleDateString();
+  }
+  function showMsg(t, kind) { var m = $("ccf-msg"); m.className = "msg " + (t ? kind : ""); m.textContent = t; }
+
+  function counts() {
+    var c = { all: rows.length, ok: 0, dev: 0, err: 0, load: 0 };
+    rows.forEach(function (r) { if (r.state === "err") c.err++; else if (r.state === "loading") c.load++; else if (r.ndev > 0) c.dev++; else c.ok++; });
+    return c;
+  }
+
+  function renderHead(c) {
+    var h = $("ccf-headline");
+    if (loading) { h.className = "headline"; h.textContent = "Leyendo la configuración de las cámaras…"; return; }
+    if (!rows.length) { h.className = "headline"; h.textContent = "No hay cámaras Surfsight en esta base"; $("ccf-lede").textContent = ""; return; }
+    if (c.dev) { h.className = "headline dev"; h.innerHTML = '<span class="n">' + c.dev + "</span> " + (c.dev === 1 ? "cámara fuera del estándar" : "cámaras fuera del estándar"); }
+    else { h.className = "headline ok"; h.textContent = "Todas las cámaras siguen el estándar"; }
+    var parts = [c.all + " cámaras Surfsight en " + db];
+    if (c.err) parts.push(c.err + (c.err === 1 ? " sin lectura" : " sin lectura"));
+    if (rows.otherCount) parts.push(rows.otherCount + " de otro proveedor no incluidas");
+    $("ccf-lede").textContent = parts.join(", ") + ". Actualizado " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ".";
+  }
+
+  function renderMosaic() {
+    var ordered = rows.slice().sort(function (a, b) { return (b.ndev - a.ndev) || String(a.vehicle).localeCompare(String(b.vehicle), "es", { numeric: true }); });
+    $("ccf-mosaic").innerHTML = ordered.map(function (r) {
+      var cls = r.state === "loading" ? "" : r.state === "err" ? "na" : r.ndev === 0 ? "ok" : r.ndev === 1 ? "d1" : "d2";
+      var t = (r.vehicle || "Sin vehículo") + (r.plate ? " · " + r.plate : "") + " — " +
+        (r.state === "loading" ? "leyendo" : r.state === "err" ? "sin lectura" : r.ndev ? r.ndev + (r.ndev === 1 ? " desvío" : " desvíos") : "conforme");
+      return '<button class="tile ' + cls + '" data-t="' + esc(r.imei) + '" title="' + esc(t) + '" aria-label="' + esc(t) + '"></button>';
+    }).join("");
+  }
+
+  function renderParams() {
+    var read = rows.filter(function (r) { return r.cfg; }).length;
+    var html = "", lastGroup = null;
+    params.forEach(function (p) {
+      if (p.group !== lastGroup) { html += '<div class="grp">' + esc(p.group) + "</div>"; lastGroup = p.group; }
+      var cur = std[p.path];
+      var ndev = rows.filter(function (r) { return r.cfg && ser(r.cfg[p.path]) !== cur; }).length;
+      var pct = read ? Math.min(100, ndev / read * 100) : 0;
+      var sel = paramFilter === p.path;
+      var opts = distribution(p.path).map(function (d) {
+        return '<option value="' + esc(d.s) + '"' + (d.s === cur ? " selected" : "") + ">" + esc(fmt(p.path, JSON.parse(d.s))) + " · " + d.n + (d.n === 1 ? " cámara" : " cámaras") + "</option>";
+      }).join("");
+      html += '<div class="prm' + (sel ? " sel" : "") + (ignored[p.path] ? " ig" : "") + '" data-p="' + esc(p.path) + '" tabindex="0" title="' + esc(p.path) + '">'
+        + '<span class="nm">' + esc(p.label) + "</span>"
+        + '<span class="cnt' + (ndev ? "" : " zero") + '">' + (ignored[p.path] ? "—" : ndev ? ndev : "✓") + "</span>"
+        + '<span class="row2"><span class="stdv">' + esc(stdText(p.path)) + '</span><span class="track"><div style="width:' + (ignored[p.path] ? 0 : Math.max(ndev ? 2 : 0, pct)) + '%"></div></span></span>'
+        + '<span class="edit"><select data-std="' + esc(p.path) + '" aria-label="Valor estándar de ' + esc(p.label) + '">' + opts + "</select>"
+        + '<label><input type="checkbox" data-ig="' + esc(p.path) + '"' + (ignored[p.path] ? " checked" : "") + "> No controlar</label></span>"
+        + "</div>";
+    });
+    $("ccf-params").innerHTML = html || '<div class="empty">Aparecen cuando termina la lectura.</div>';
+    var act = params.filter(function (p) { return !ignored[p.path]; }).length;
+    $("ccf-stdcount").textContent = params.length ? act + " de " + params.length + " parámetros controlados" : "";
+    $("ccf-stdnote").textContent = custom
+      ? "Estándar ajustado a mano en este navegador. Elegí un parámetro para filtrar o cambiarlo."
+      : "El valor que tiene la mayoría de las cámaras. Elegí un parámetro para filtrar o cambiar su estándar.";
+  }
+
+  function visibleRows() {
+    var q = $("ccf-q").value.trim().toLowerCase(), st = $("ccf-status").value;
+    return rows.filter(function (r) {
+      if (filter === "ok" && !(r.state === "ok" && r.ndev === 0)) return false;
+      if (filter === "dev" && !(r.ndev > 0 || r.state === "loading")) return false;
+      if (filter === "err" && r.state !== "err") return false;
+      if (paramFilter && !(r.cfg && ser(r.cfg[paramFilter]) !== std[paramFilter])) return false;
+      if (st && r.status !== st) return false;
+      if (q && (r.vehicle + " " + r.plate + " " + r.imei + " " + r.go).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    }).sort(function (a, b) {
+      var x = a[sortKey], y = b[sortKey];
+      x = x == null ? "" : x; y = y == null ? "" : y;
+      var c = typeof x === "number" ? x - y : String(x).localeCompare(String(y), "es", { numeric: true });
+      return (c * sortDir) || String(a.vehicle).localeCompare(String(b.vehicle), "es", { numeric: true });
+    });
+  }
+
+  function detailHtml(r) {
+    var devSet = {}; r.devs.forEach(function (p) { devSet[p.path] = true; });
+    var html = "", group = null;
+    params.forEach(function (p) {
+      if (p.group !== group) { if (group !== null) html += "</div>"; html += "<div><h4>" + esc(p.group) + "</h4>"; group = p.group; }
+      var d = devSet[p.path];
+      html += '<div class="kv' + (d ? " d" : ignored[p.path] ? " ig" : "") + '"><span class="k" title="' + esc(p.path) + '">' + esc(p.label) + '</span><span class="v">'
+        + esc(fmt(p.path, r.cfg[p.path])) + (d ? ' <span class="t2">(estándar ' + esc(stdText(p.path)) + ")</span>" : "") + "</span></div>";
+    });
+    if (group !== null) html += "</div>";
+    return '<div class="detail">' + html + "</div>";
+  }
+
+  function renderList() {
+    var vr = visibleRows();
+    if (!vr.length) {
+      var e = !rows.length ? "No hay cámaras Surfsight en esta base."
+        : filter === "dev" && !paramFilter && !$("ccf-q").value && !$("ccf-status").value ? "Ninguna cámara se aparta del estándar."
+        : "Ninguna cámara coincide con estos filtros.";
+      $("ccf-body").innerHTML = '<div class="empty">' + e + "</div>"; return;
+    }
+    $("ccf-body").innerHTML = vr.map(function (r) {
+      var dev;
+      if (r.busy) dev = '<span class="state load">Aplicando el estándar…</span>';
+      else if (r.state === "loading") dev = '<span class="state load">Leyendo…</span>';
+      else if (r.state === "err") dev = '<span class="state na">No se pudo leer (' + esc(r.why) + ")</span>";
+      else if (!r.devs.length) dev = '<span class="state ok">Igual al estándar</span>';
+      else dev = '<div class="devs">' + r.devs.map(function (p) {
+        return '<span class="dv" title="' + esc(p.path) + '"><span class="k">' + esc(p.label) + '</span><span class="v">' + esc(fmt(p.path, r.cfg[p.path])) + '</span><span class="s">en vez de ' + esc(stdText(p.path)) + "</span></span>";
+      }).join("") + "</div>";
+      var canFix = r.state === "ok" && !r.busy && patchFor(r).n > 0;
+      var veh = r.deviceId ? '<a href="#device,id:' + esc(r.deviceId) + '" target="_top">' + esc(r.vehicle) + "</a>" : "Sin vehículo asociado";
+      return '<div class="cam' + (r.ndev > 0 ? " hasdev" : "") + '" id="ccf-r-' + esc(r.imei) + '">'
+        + "<span><input type='checkbox' data-sel='" + esc(r.imei) + "'" + (selected[r.imei] ? " checked" : "") + (canFix ? "" : " disabled") + ' aria-label="Seleccionar ' + esc(r.vehicle || r.imei) + '"></span>'
+        + '<span><div class="t1">' + veh + '</div><div class="t2">' + esc(r.plate || "Sin patente") + "</div></span>"
+        + '<span class="c-cam"><div>' + esc(r.imei) + '</div><div class="t2">' + esc(r.model || "Surfsight") + (r.go ? " en " + esc(r.go) : "") + "</div></span>"
+        + '<span class="c-conn"><div class="conn"><span class="dot ' + esc(r.status) + '"></span>' + esc(r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : "—") + '</div><div class="t2">' + esc(fmtDate(r.lastOnline)) + "</div></span>"
+        + '<span class="c-dev">' + dev + "</span>"
+        + '<span class="acts">' + (r.cfg ? '<button class="btn sm" data-x="' + esc(r.imei) + '" aria-expanded="' + !!expanded[r.imei] + '">' + (expanded[r.imei] ? "Cerrar" : "Ver todo") + "</button>" : "")
+        + (canFix ? '<button class="btn sm fix" data-fix="' + esc(r.imei) + '">Aplicar estándar</button>' : "") + "</span>"
+        + (expanded[r.imei] && r.cfg ? detailHtml(r) : "")
+        + "</div>";
+    }).join("");
+  }
+
+  function renderControls(c) {
+    ["all", "ok", "dev", "err"].forEach(function (k) { $("ccf-n-" + k).textContent = c[k]; });
+    Array.prototype.forEach.call(document.querySelectorAll("#ccf-seg button"), function (b) { b.classList.toggle("on", b.getAttribute("data-f") === filter); });
+    $("ccf-paramchip").innerHTML = paramFilter ? '<span class="chip">Distinto en ' + esc(labelOf(paramFilter)) + ' <button id="ccf-pfx" aria-label="Quitar filtro">×</button></span>' : "";
+    Array.prototype.forEach.call(document.querySelectorAll("#ccf .lh [data-s]"), function (s) { s.classList.toggle("sorted", s.getAttribute("data-s") === sortKey); });
+  }
+
+  function renderAll() {
+    var c = counts();
+    renderHead(c); renderMosaic(); renderParams(); renderControls(c); renderList();
+  }
+
+  function updateBulk() {
+    var n = Object.keys(selected).length;
+    $("ccf-bulk").disabled = n === 0;
+    $("ccf-bulk").textContent = n ? "Aplicar estándar a " + n : "Aplicar estándar";
+    $("ccf-bulk").title = n ? "Aplica el estándar en las " + n + " cámaras seleccionadas" : "Seleccioná cámaras para aplicar el estándar en todas juntas";
+  }
+
+  function exportCsv() {
+    var head = ["Vehiculo", "Patente", "IMEI", "Serie GO", "Modelo", "Conexion", "Ultima conexion", "Lectura", "Cantidad de desvios", "Desvios"].concat(params.map(function (p) { return p.label; }));
+    var lines = [head, ["", "", "", "", "", "", "", "", "", "ESTÁNDAR"].concat(params.map(function (p) { return ignored[p.path] ? "(no controlado)" : stdText(p.path); }))];
+    visibleRows().forEach(function (r) {
+      lines.push([r.vehicle, r.plate, r.imei, r.go, r.model, r.status, r.lastOnline, r.state === "ok" ? "ok" : (r.why || r.state),
+        r.state === "ok" ? r.devs.length : "", r.devs.map(function (p) { return p.label; }).join(" | ")]
+        .concat(params.map(function (p) { return r.cfg ? fmt(p.path, r.cfg[p.path]) : ""; })));
+    });
+    var csv = "﻿" + lines.map(function (l) { return l.map(function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }).join(";"); }).join("\r\n");
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "config_camaras_" + (db || "base") + "_" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function focusRow(imei) {
+    var r = rows.filter(function (x) { return x.imei === imei; })[0]; if (!r) return;
+    filter = "all"; paramFilter = null; $("ccf-q").value = ""; $("ccf-status").value = "";
+    if (r.cfg) expanded[imei] = true;
+    renderAll();
+    var el = $("ccf-r-" + imei);
+    if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("flash"); }
+  }
+
+  // ---------- eventos ----------
+  var bound = false;
+  function bind() {
+    if (bound) return; bound = true;
+    var rerender = function () { renderControls(counts()); renderList(); };
+    $("ccf-reload").onclick = load;
+    $("ccf-csv").onclick = exportCsv;
+    $("ccf-q").oninput = rerender;
+    $("ccf-status").onchange = rerender;
+    $("ccf-m-cancel").onclick = closeModal;
+    $("ccf-modal").onclick = function (e) { if (e.target === this) closeModal(); };
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+    $("ccf-bulk").onclick = function () { confirmApply(Object.keys(selected)); };
+    $("ccf-mosaic").onclick = function (e) { var t = e.target.closest(".tile"); if (t) focusRow(t.getAttribute("data-t")); };
+    $("ccf-seg").onclick = function (e) { var b = e.target.closest("button[data-f]"); if (!b) return; filter = b.getAttribute("data-f"); rerender(); };
+    $("ccf-stdreset").onclick = function () {
+      custom = false; ignored = {}; std = majorityStandard();
+      try { localStorage.removeItem(storeKey()); } catch (e) {}
+      recompute(); renderAll();
+    };
+    var toggleParam = function (el) {
+      var p = el.getAttribute("data-p");
+      paramFilter = paramFilter === p ? null : p;
+      if (paramFilter) filter = "all";
+      renderParams(); rerender();
+    };
+    $("ccf-params").onclick = function (e) {
+      if (e.target.closest(".edit")) return;
+      var el = e.target.closest(".prm"); if (el) toggleParam(el);
+    };
+    $("ccf-params").onkeydown = function (e) {
+      if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("prm")) { e.preventDefault(); toggleParam(e.target); }
+    };
+    $("ccf-params").onchange = function (e) {
+      var s = e.target.closest("select[data-std]"), ig = e.target.closest("input[data-ig]");
+      if (s) std[s.getAttribute("data-std")] = s.value;
+      if (ig) { var k = ig.getAttribute("data-ig"); if (ig.checked) ignored[k] = true; else delete ignored[k]; }
+      if (s || ig) { custom = true; save(); recompute(); renderAll(); }
+    };
+    $("ccf-paramchip").onclick = function (e) { if (e.target.closest("#ccf-pfx")) { paramFilter = null; renderParams(); rerender(); } };
+    document.querySelector("#ccf .lh").onclick = function (e) {
+      var s = e.target.closest("[data-s]"); if (!s) return;
+      var k = s.getAttribute("data-s"); if (k === sortKey) sortDir = -sortDir; else { sortKey = k; sortDir = k === "ndev" ? -1 : 1; }
+      rerender();
+    };
+    $("ccf-all").onchange = function () {
+      selected = {};
+      if (this.checked) visibleRows().forEach(function (r) { if (r.state === "ok" && !r.busy && patchFor(r).n > 0) selected[r.imei] = true; });
+      updateBulk(); renderList();
+    };
+    $("ccf-body").onclick = function (e) {
+      var x = e.target.closest("button[data-x]"), f = e.target.closest("button[data-fix]");
+      if (x) { var k = x.getAttribute("data-x"); if (expanded[k]) delete expanded[k]; else expanded[k] = true; renderList(); }
+      if (f) confirmApply([f.getAttribute("data-fix")]);
+    };
+    $("ccf-body").onchange = function (e) {
+      var cb = e.target.closest("input[data-sel]"); if (!cb) return;
+      var k = cb.getAttribute("data-sel");
+      if (cb.checked) selected[k] = true; else delete selected[k];
+      updateBulk();
+    };
+  }
+
+  return {
+    initialize: function (freshApi, state, callback) { api = freshApi; bind(); callback(); },
+    focus: function (freshApi) { api = freshApi; load(); },
+    blur: function () { loadToken++; closeModal(); }
+  };
+};
+</script>
+</body>
+</html>
