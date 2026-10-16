@@ -64,7 +64,7 @@
         <input type="search" class="field" id="ccf-q" placeholder="Vehículo, patente o IMEI">
         <select class="field" id="ccf-model" aria-label="Modelo">
           <option value="">Todos los modelos</option>
-          <option value="surfsight">GO Focus</option>
+          <option value="surfsight">Surfsight</option>
           <option value="smarterai">GO Focus Plus</option>
         </select>
         <select class="field" id="ccf-status" aria-label="Conexión">
@@ -325,7 +325,7 @@ geotab.addin.cameraConfig = function () {
   // Cada proveedor tiene su propio endpoint y su propio juego de parámetros, así que el estándar
   // se define por separado para cada modelo. Las claves de parámetro van como "proveedor:clave".
   var FAMILIES = {
-    surfsight: { name: "GO Focus", sub: "Surfsight AI-12", order: 0, canPatch: true,
+    surfsight: { name: "Surfsight", sub: "Surfsight AI-12", order: 0, canPatch: true,
                  settings: function (id) { return "/Surfsight/DeviceSettings/" + encodeURIComponent(id); } },
     smarterai: { name: "GO Focus Plus", sub: "Smarter AI", order: 1, canPatch: false,
                  settings: function (id) { return "/SmarterAi/DeviceSettings/deployedSchemes/" + encodeURIComponent(id); } }
@@ -344,19 +344,11 @@ geotab.addin.cameraConfig = function () {
     "distractedDriver": "Conductor distraído",
     "adas": "ADAS",
     "audioAlarms": "Alarmas sonoras",
-    "pinCodeDi": "Identificación por PIN",
-    "qrDi": "Identificación por QR",
-    "driverPin": "PIN del conductor",
     "driverPosition": "Posición del conductor",
-    "brightness": "Brillo de pantalla",
     "speedUnits": "Unidad de velocidad",
     "dateTimeUnits": "Formato de fecha",
-    "privacy.gpsEnabled": "GPS",
-    "privacy.mvaiEnabled": "Eventos de IA",
-    "privacy.allEventsEnabled": "Todos los eventos",
     "privacy.liveStreamEnabled": "Video en vivo",
     "standby.timeout": "Espera antes de standby (s)",
-    "hotSpot.internetAccess": "Internet por hotspot",
     // GO Focus Plus (Smarter AI)
     "lensAsASensorCabin": "Lente interior como sensor",
     "lensAsASensorRoad": "Lente de ruta como sensor",
