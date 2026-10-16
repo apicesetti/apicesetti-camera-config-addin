@@ -33,6 +33,9 @@ def base_config(version: str) -> dict:
         "name": "Configuración de cámaras",
         "supportEmail": "soporte@cesetti.com.ar",
         "version": version,
+        # Crea en Autorizaciones la casilla "View Configuración de cámaras add-in": solo los
+        # usuarios cuya autorización la tenga activada ven el add-in en el menú.
+        "enableViewSecurityId": True,
         "isSigned": False,
     }
 

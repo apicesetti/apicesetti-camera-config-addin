@@ -11,7 +11,7 @@
   <div class="head">
     <div class="head-text">
       <h1 class="headline" id="ccf-headline">Leyendo la configuración de las cámaras…</h1>
-      <p class="lede" id="ccf-lede">Cada cámara Surfsight se compara contra el estándar de la flota.</p>
+      <p class="lede" id="ccf-lede">Cada cámara se compara contra el estándar de la flota.</p>
     </div>
     <div class="head-actions">
       <button class="btn" id="ccf-csv">Exportar CSV</button>
@@ -21,6 +21,12 @@
 
   <div id="ccf-msg" class="msg"></div>
 
+  <section class="health" id="ccf-health" aria-label="Cámaras funcionando y en falla">
+    <button class="hcard ok" data-f="working"><span class="hn" id="ccf-h-ok">–</span><span class="hl">Funcionando</span><span class="hs">Se conectaron en los últimos 3 días</span></button>
+    <button class="hcard fail" data-f="fail"><span class="hn" id="ccf-h-fail">–</span><span class="hl">En falla</span><span class="hs">Más de 3 días sin conectarse</span></button>
+    <div class="hmodels" id="ccf-h-models"></div>
+  </section>
+
   <section class="fleet" aria-label="Estado de cada cámara">
     <div class="meter" id="ccf-meter"><div id="ccf-bar"></div></div>
     <div class="mosaic" id="ccf-mosaic"></div>
@@ -29,6 +35,7 @@
       <span><i style="background:var(--dev1)"></i>1 desvío</span>
       <span><i style="background:var(--dev)"></i>2 o más desvíos</span>
       <span><i style="background:var(--na)"></i>Sin lectura</span>
+      <span><i class="lg-fail"></i>Borde oscuro: en falla</span>
     </div>
   </section>
 
@@ -52,8 +59,14 @@
           <button data-f="all">Todas<b id="ccf-n-all">–</b></button>
           <button data-f="ok">Conformes<b id="ccf-n-ok">–</b></button>
           <button data-f="err">Sin lectura<b id="ccf-n-err">–</b></button>
+          <button data-f="fail">En falla<b id="ccf-n-fail">–</b></button>
         </div>
         <input type="search" class="field" id="ccf-q" placeholder="Vehículo, patente o IMEI">
+        <select class="field" id="ccf-model" aria-label="Modelo">
+          <option value="">Todos los modelos</option>
+          <option value="surfsight">GO Focus</option>
+          <option value="smarterai">GO Focus Plus</option>
+        </select>
         <select class="field" id="ccf-status" aria-label="Conexión">
           <option value="">Cualquier conexión</option>
           <option value="online">Online</option>
@@ -132,6 +145,21 @@ geotab.addin.cameraConfig = function () {
   #ccf .msg.err { display:block; background:var(--devbg); color:#9B2C25; }
   #ccf .msg.info { display:block; background:var(--bluebg); color:#1B4C82; }
 
+  /* ---------- funcionando / en falla ---------- */
+  #ccf .health { display:flex; gap:12px; flex-wrap:wrap; align-items:stretch; margin-bottom:14px; }
+  #ccf .hcard { display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:12px; align-items:baseline; text-align:left; background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:12px 16px; cursor:pointer; min-width:230px; }
+  #ccf .hcard:hover { border-color:var(--line2); }
+  #ccf .hcard.on { box-shadow:inset 0 0 0 1px var(--ink); border-color:var(--ink); }
+  #ccf .hn { grid-row:1 / span 2; font-size:30px; font-weight:600; line-height:1; letter-spacing:-.01em; align-self:center; }
+  #ccf .hcard.ok .hn { color:var(--ok); }
+  #ccf .hcard.fail .hn { color:var(--dev); }
+  #ccf .hcard.fail.zero .hn { color:var(--ink3); }
+  #ccf .hl { font-weight:600; }
+  #ccf .hs { color:var(--ink3); font-size:12.5px; }
+  #ccf .hmodels { flex:1 1 260px; display:flex; flex-direction:column; justify-content:center; gap:4px; color:var(--ink2); font-size:13px; padding:4px; }
+  #ccf .hmodels b { font-weight:600; color:var(--ink); }
+  #ccf .hmodels .bad { color:var(--dev); font-weight:600; }
+
   /* ---------- mosaico de la flota ---------- */
   #ccf .fleet { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:16px 18px 14px; margin-bottom:20px; }
   #ccf .mosaic { display:flex; flex-wrap:wrap; gap:3px; }
@@ -140,6 +168,8 @@ geotab.addin.cameraConfig = function () {
   #ccf .tile.d1 { background:var(--dev1); }
   #ccf .tile.d2 { background:var(--dev); }
   #ccf .tile.na { background:var(--na); }
+  #ccf .tile.fail { box-shadow:inset 0 0 0 2px var(--ink); opacity:1; }
+  #ccf .legend i.lg-fail { background:var(--idle); box-shadow:inset 0 0 0 2px var(--ink); }
   #ccf .tile:hover { outline:2px solid var(--ink); outline-offset:1px; opacity:1; }
   #ccf .legend { display:flex; gap:18px; flex-wrap:wrap; margin-top:12px; color:var(--ink2); font-size:13px; }
   #ccf .legend span { display:inline-flex; align-items:center; gap:6px; }
@@ -158,6 +188,9 @@ geotab.addin.cameraConfig = function () {
   #ccf .side-h h2 { font-size:15px; font-weight:600; margin:0; }
   #ccf .side-h p { margin:3px 0 0; color:var(--ink3); font-size:12.5px; }
   #ccf .side-b { overflow:auto; padding:4px 0 10px; }
+  #ccf .fam { padding:12px 16px 4px; font-weight:600; font-size:13.5px; border-top:1px solid var(--line); margin-top:6px; }
+  #ccf .fam:first-child { border-top:none; margin-top:0; }
+  #ccf .fam span { color:var(--ink3); font-weight:400; font-size:12.5px; }
   #ccf .grp { padding:10px 16px 2px; color:var(--ink3); font-size:12.5px; font-weight:500; }
   #ccf .prm { display:grid; grid-template-columns:1fr auto; gap:2px 10px; padding:7px 16px; cursor:pointer; border-left:3px solid transparent; }
   #ccf .prm:hover { background:#F8FAFB; }
@@ -193,14 +226,16 @@ geotab.addin.cameraConfig = function () {
   #ccf .seg button.on { background:var(--ink); color:#fff; }
   #ccf .seg button.on b { color:#fff; }
   #ccf .field { height:34px; border:1px solid var(--line2); border-radius:6px; background:var(--paper); padding:0 10px; }
-  #ccf input.field { flex:1 1 200px; min-width:160px; max-width:320px; }
+  #ccf input.field { flex:1 1 160px; min-width:130px; max-width:300px; }
+  #ccf select.field { padding:0 6px; }
+  #ccf .c-conn .t2 { white-space:nowrap; }
   #ccf .chip { display:inline-flex; align-items:center; gap:6px; background:var(--bluebg); color:#1B4C82; border-radius:6px; height:30px; padding:0 4px 0 10px; font-size:13px; }
   #ccf .chip button { border:none; background:none; width:22px; height:22px; border-radius:4px; cursor:pointer; color:inherit; font-size:15px; line-height:1; }
   #ccf .chip button:hover { background:#D5E3F5; }
   #ccf .spacer { flex:1; }
 
   #ccf .list { background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-  #ccf .lh, #ccf .cam { display:grid; grid-template-columns:30px minmax(160px, 1.1fr) minmax(150px, .9fr) 118px minmax(240px, 2.3fr) 214px; gap:12px; align-items:start; padding:11px 16px; }
+  #ccf .lh, #ccf .cam { display:grid; grid-template-columns:30px minmax(150px, 1.1fr) minmax(140px, .9fr) 132px minmax(240px, 2.3fr) 214px; gap:12px; align-items:start; padding:11px 16px; }
   #ccf .lh { background:#F8FAFB; border-bottom:1px solid var(--line); color:var(--ink3); font-size:12.5px; font-weight:500; padding-top:9px; padding-bottom:9px; align-items:center; }
   #ccf .lh [data-s] { cursor:pointer; user-select:none; }
   #ccf .lh [data-s]:hover { color:var(--ink); }
@@ -218,6 +253,8 @@ geotab.addin.cameraConfig = function () {
   #ccf .conn { display:inline-flex; align-items:center; gap:6px; }
   #ccf .dot { width:8px; height:8px; border-radius:50%; background:#A8B3BE; display:inline-block; }
   #ccf .dot.online { background:var(--ok); } #ccf .dot.standby { background:#E0A526; }
+  #ccf .t2.fail { color:var(--dev); font-weight:500; }
+  #ccf .note { font-size:12px; color:var(--ink3); text-align:right; max-width:200px; }
   #ccf .devs { display:flex; flex-wrap:wrap; gap:5px; }
   #ccf .c-dev { min-width:0; }
   #ccf .dv > span { white-space:nowrap; }
@@ -251,7 +288,10 @@ geotab.addin.cameraConfig = function () {
     #ccf .cam > .acts { grid-column:2 / -1; justify-content:flex-start; }
     #ccf .lh { display:none; }
     #ccf .cam { grid-template-columns:28px 1fr auto; }
-    #ccf .cam > .c-cam, #ccf .cam > .c-conn { display:none; }
+    #ccf .cam > .c-cam { display:none; }
+    #ccf .cam > .c-conn { grid-column:2 / -1; }
+    #ccf .hcard { min-width:0; flex:1 1 140px; }
+    #ccf .hs { display:none; }
     #ccf .cam > .c-dev { grid-column:2 / -1; }
     #ccf .detail { grid-column:1 / -1; }
   }
@@ -281,6 +321,15 @@ geotab.addin.cameraConfig = function () {
   injectStyles();
 
   var MS = "https://media-services.geotab.com/api";
+  var FAIL_DAYS = 3;            // una cámara que no se conecta hace más de esto se cuenta como en falla
+  // Cada proveedor tiene su propio endpoint y su propio juego de parámetros, así que el estándar
+  // se define por separado para cada modelo. Las claves de parámetro van como "proveedor:clave".
+  var FAMILIES = {
+    surfsight: { name: "GO Focus", sub: "Surfsight AI-12", order: 0, canPatch: true,
+                 settings: function (id) { return "/Surfsight/DeviceSettings/" + encodeURIComponent(id); } },
+    smarterai: { name: "GO Focus Plus", sub: "Smarter AI", order: 1, canPatch: false,
+                 settings: function (id) { return "/SmarterAi/DeviceSettings/deployedSchemes/" + encodeURIComponent(id); } }
+  };
   var CONCURRENCY = 6;
 
   // Nombres legibles y grupo de cada parámetro conocido de Surfsight. Los que no estén acá van a "Otros".
@@ -307,20 +356,30 @@ geotab.addin.cameraConfig = function () {
     "privacy.allEventsEnabled": "Todos los eventos",
     "privacy.liveStreamEnabled": "Video en vivo",
     "standby.timeout": "Espera antes de standby (s)",
-    "hotSpot.internetAccess": "Internet por hotspot"
+    "hotSpot.internetAccess": "Internet por hotspot",
+    // GO Focus Plus (Smarter AI)
+    "lensAsASensorCabin": "Lente interior como sensor",
+    "lensAsASensorRoad": "Lente de ruta como sensor",
+    "beepNotification": "Pitidos de aviso",
+    "voiceNotification": "Avisos por voz",
+    "voiceAlertGender": "Voz de los avisos",
+    "voiceAlertLanguage": "Idioma de los avisos",
+    "powerParkingByMovement": "Encender por movimiento estacionado"
   };
   var GROUPS = [
-    ["Video y grabación", ["inCabinCameraRecording", "driverCamera", "liveVideo", "notifyLiveStreaming", "voiceRecording", "recordingEncryption.enabled", "textOverlay"]],
-    ["Asistencia al conductor", ["distractedDriver", "adas", "audioAlarms"]],
+    ["Video y grabación", ["inCabinCameraRecording", "driverCamera", "liveVideo", "notifyLiveStreaming", "voiceRecording", "recordingEncryption.enabled", "textOverlay", "lensAsASensorCabin", "lensAsASensorRoad"]],
+    ["Asistencia al conductor", ["distractedDriver", "adas", "audioAlarms", "beepNotification", "voiceNotification", "voiceAlertGender", "voiceAlertLanguage"]],
     ["Identificación del conductor", ["pinCodeDi", "qrDi", "driverPin", "driverPosition"]],
     ["Pantalla y unidades", ["brightness", "speedUnits", "dateTimeUnits"]],
     ["Privacidad", [/^privacy\./]],
-    ["Sistema", ["standby.timeout", "hotSpot.internetAccess"]]
+    ["Sistema", ["standby.timeout", "hotSpot.internetAccess", "powerParkingByMovement"]]
   ];
-  var VALUE_TEXT = { left: "Izquierda", right: "Derecha", kmh: "km/h", mph: "mph", eu: "DD/MM/AAAA", us: "MM/DD/AAAA" };
+  var VALUE_TEXT = { left: "Izquierda", right: "Derecha", kmh: "km/h", mph: "mph", eu: "DD/MM/AAAA", us: "MM/DD/AAAA",
+    NEUTRAL: "Neutra", MALE: "Masculina", FEMALE: "Femenina",
+    ES_US: "Español (EE. UU.)", ES_ES: "Español (España)", EN_US: "Inglés (EE. UU.)", PT_BR: "Portugués (Brasil)" };
 
   var api, headers = null, db = "", rows = [], loadToken = 0, loading = false;
-  var params = [];            // [{path, label, group, order, simple}]
+  var params = [];            // [{path: "proveedor:clave", fam, key, label, group, order, simple}]
   var std = {};               // path -> valor estándar serializado (JSON). Si un parámetro no está, no se controla.
   var ENUMS = { driverPosition: ["left", "right"], speedUnits: ["kmh", "mph"], dateTimeUnits: ["eu", "us"] };
   // El estándar se guarda en la base (AddInData) para que todos los usuarios trabajen con el mismo.
@@ -380,13 +439,17 @@ geotab.addin.cameraConfig = function () {
     return out;
   }
 
+  var keyOf = function (path) { var i = path.indexOf(":"); return i < 0 ? path : path.slice(i + 1); };
+  var famOf = function (path) { var i = path.indexOf(":"); return i < 0 ? "surfsight" : path.slice(0, i); };
   function labelOf(path) {
+    path = keyOf(path);
     if (LABELS[path]) return LABELS[path];
     var m = path.match(/^privacy\.cameras\[(\d+)\]\.(\w+)$/);
     if (m) return "Cámara " + m[1] + ": " + ({ recordingEnabled: "grabación", eventsEnabled: "eventos", liveStreamEnabled: "video en vivo" }[m[2]] || m[2]);
     return path;
   }
   function groupOf(path) {
+    path = keyOf(path);
     for (var g = 0; g < GROUPS.length; g++) {
       var list = GROUPS[g][1];
       for (var j = 0; j < list.length; j++) {
@@ -396,7 +459,7 @@ geotab.addin.cameraConfig = function () {
     }
     return { name: "Otros", order: 900 };
   }
-  var isSecret = function (path) { return /pin$/i.test(path); };
+  var isSecret = function (path) { return /pin$/i.test(keyOf(path)); };
   function fmt(path, v) {
     if (v === undefined) return "—";
     if (v === null) return "Sin valor";
@@ -411,17 +474,21 @@ geotab.addin.cameraConfig = function () {
   function buildParams() {
     var seen = {}, simpleAll = {};
     rows.forEach(function (r) { if (r.cfg) { Object.keys(r.cfg).forEach(function (k) { seen[k] = true; }); Object.keys(r.simple).forEach(function (k) { simpleAll[k] = true; }); } });
-    params = Object.keys(seen).map(function (k) { var g = groupOf(k); return { path: k, label: labelOf(k), group: g.name, order: g.order, simple: !!simpleAll[k] }; })
+    params = Object.keys(seen).map(function (k) {
+      var g = groupOf(k), fam = famOf(k);
+      return { path: k, fam: fam, key: keyOf(k), label: labelOf(k), group: g.name, order: (FAMILIES[fam] ? FAMILIES[fam].order : 9) * 10000 + g.order, simple: !!simpleAll[k] };
+    })
       .sort(function (a, b) { return a.order - b.order || a.label.localeCompare(b.label, "es", { numeric: true }); });
   }
 
   function distribution(path) {
     var counts = {};
-    rows.forEach(function (r) { if (r.cfg) { var s = ser(r.cfg[path]); counts[s] = (counts[s] || 0) + 1; } });
+    var fam = famOf(path);
+    rows.forEach(function (r) { if (r.cfg && r.fam === fam) { var s = ser(r.cfg[path]); counts[s] = (counts[s] || 0) + 1; } });
     return Object.keys(counts).map(function (s) { return { s: s, n: counts[s] }; }).sort(function (a, b) { return b.n - a.n; });
   }
   function kindOf(path) {
-    if (ENUMS[path]) return "enum";
+    if (ENUMS[keyOf(path)]) return "enum";
     var vals = distribution(path).map(function (d) { return JSON.parse(d.s); }).filter(function (v) { return v !== null; });
     if (vals.length && vals.every(function (v) { return typeof v === "boolean"; })) return "bool";
     if (vals.length && vals.every(function (v) { return typeof v === "number"; })) return "num";
@@ -431,7 +498,8 @@ geotab.addin.cameraConfig = function () {
 
   // ---------- estándar: lectura y guardado en la base ----------
   function storeKey() { return "ccf-standard-v2-" + db; }
-  function fromItems(items) { var o = {}; (items || []).forEach(function (it) { if (it && it.path) o[it.path] = ser(it.value); }); return o; }
+  // Las claves guardadas por la v1.3 no tienen proveedor: eran todas de GO Focus (Surfsight).
+  function fromItems(items) { var o = {}; (items || []).forEach(function (it) { if (it && it.path) o[it.path.indexOf(":") < 0 ? "surfsight:" + it.path : it.path] = ser(it.value); }); return o; }
   function toItems() { return Object.keys(std).sort().map(function (k) { return { path: k, value: JSON.parse(std[k]) }; }); }
 
   function loadStandard() {
@@ -453,7 +521,7 @@ geotab.addin.cameraConfig = function () {
     clearTimeout(saveTimer);
     saveState = "Guardando…"; renderStdFoot();
     saveTimer = setTimeout(function () {
-      var details = { kind: "cameraStandard", version: 1, items: toItems(), updatedBy: userName, updatedAt: new Date().toISOString() };
+      var details = { kind: "cameraStandard", version: 2, items: toItems(), updatedBy: userName, updatedAt: new Date().toISOString() };
       if (stdStore === "local") {
         try { localStorage.setItem(storeKey(), JSON.stringify(details)); } catch (e) {}
         saveState = "Guardado solo en este navegador."; renderStdFoot(); return;
@@ -473,7 +541,7 @@ geotab.addin.cameraConfig = function () {
 
   function deviations(r) {
     if (!r.cfg) return [];
-    return params.filter(function (p) { return (p.path in std) && ser(r.cfg[p.path]) !== std[p.path]; });
+    return params.filter(function (p) { return p.fam === r.fam && (p.path in std) && ser(r.cfg[p.path]) !== std[p.path]; });
   }
   function recompute() { rows.forEach(function (r) { r.devs = deviations(r); r.ndev = r.state === "ok" ? r.devs.length : -1; }); }
   function refreshAll() { buildParams(); recompute(); renderAll(); }
@@ -500,18 +568,22 @@ geotab.addin.cameraConfig = function () {
         if (token !== loadToken) return;
         var bySerial = {}, other = 0;
         r[1].forEach(function (d) { if (d.serialNumber) bySerial[d.serialNumber] = d; });
-        rows = (r[0] || []).filter(function (m) { if (m.partnerId === "surfsight") return true; other++; return false; })
+        rows = (r[0] || []).filter(function (m) { if (FAMILIES[m.partnerId]) return true; other++; return false; })
           .map(function (m) {
             var d = bySerial[m.associatedDeviceSerialNumber];
             return {
               imei: m.partnerDeviceId, go: m.associatedDeviceSerialNumber || "",
               vehicle: d ? d.name : "", plate: d ? (d.licensePlate || "") : "", deviceId: d ? d.id : null,
               model: (m.partnerMetaData && m.partnerMetaData.DeviceModel) || "",
-              status: m.deviceStatus || "", lastOnline: m.partnerDeviceLastOnlineAt || "",
+              fam: m.partnerId, status: m.deviceStatus || "",
+              // partnerDeviceLastOnlineAt se refresca solo aunque la cámara esté desconectada; la
+              // última conexión real es partnerMetaData.LastConnectedAt.
+              lastConn: (m.partnerMetaData && m.partnerMetaData.LastConnectedAt) || "",
               cfg: null, simple: {}, state: "loading", busy: false, devs: [], ndev: -1
             };
           });
         rows.otherCount = other;
+        rows.forEach(markHealth);
         renderAll();
         return fetchAll(token);
       })
@@ -529,11 +601,23 @@ geotab.addin.cameraConfig = function () {
       });
   }
 
+  function markHealth(r) {
+    var t = r.lastConn ? new Date(r.lastConn).getTime() : NaN;
+    r.daysOff = isNaN(t) ? null : (Date.now() - t) / 86400000;
+    r.failing = r.daysOff === null || r.daysOff > FAIL_DAYS;
+  }
+
   function fetchSettings(row) {
-    return ms("/Surfsight/DeviceSettings/" + encodeURIComponent(row.imei))
+    return ms(FAMILIES[row.fam].settings(row.imei))
       .then(function (r) {
         if (!r.ok) { row.state = "err"; row.why = r.status === 401 || r.status === 403 ? "sin acceso (" + r.status + ")" : "error " + r.status; row.cfg = null; return; }
-        return r.json().then(function (j) { row.simple = {}; row.cfg = flatten(j, "", {}, row.simple); row.state = "ok"; });
+        return r.json().then(function (j) {
+          var raw = {}, simple = {}; flatten(j, "", raw, simple);
+          row.cfg = {}; row.simple = {};
+          Object.keys(raw).forEach(function (k) { row.cfg[row.fam + ":" + k] = raw[k]; });
+          Object.keys(simple).forEach(function (k) { row.simple[row.fam + ":" + k] = true; });
+          row.state = "ok";
+        });
       })
       .catch(function (e) { row.state = "err"; row.why = "sin conexión"; if (e.network) throw e; });
   }
@@ -560,7 +644,8 @@ geotab.addin.cameraConfig = function () {
   // Solo se corrigen parámetros simples ({"value": x} en el primer nivel): es el formato del PATCH que usa MyGeotab.
   function patchFor(r) {
     var cfg = {}, skipped = [];
-    r.devs.forEach(function (p) { if (p.simple) cfg[p.path] = { value: JSON.parse(std[p.path]) }; else skipped.push(p); });
+    var can = FAMILIES[r.fam] && FAMILIES[r.fam].canPatch;
+    r.devs.forEach(function (p) { if (can && p.simple) cfg[p.key] = { value: JSON.parse(std[p.path]) }; else skipped.push(p); });
     return { cfg: cfg, n: Object.keys(cfg).length, skipped: skipped };
   }
 
@@ -569,13 +654,13 @@ geotab.addin.cameraConfig = function () {
     var fixable = list.filter(function (r) { return patchFor(r).n > 0; });
     var html;
     if (!fixable.length) {
-      html = "<p>Estas diferencias son de privacidad, standby, hotspot o cifrado. Se cambian desde la configuración de la cámara en MyGeotab.</p>";
+      html = "<p>Estas diferencias no se pueden aplicar desde acá. Las de GO Focus Plus, y las de privacidad, standby, hotspot o cifrado de GO Focus, se cambian desde la configuración de la cámara en MyGeotab.</p>";
     } else {
       html = "<p>Estos valores se van a enviar a " + (fixable.length === 1 ? "la cámara" : "las " + fixable.length + " cámaras") + ":</p><ul>";
       fixable.slice(0, 60).forEach(function (r) {
         var pf = patchFor(r);
         html += "<li><b>" + esc(r.vehicle || "Sin vehículo") + "</b>" + (r.plate ? " · " + esc(r.plate) : "") + "<br>" +
-          Object.keys(pf.cfg).map(function (k) { return esc(labelOf(k)) + ": " + esc(fmt(k, r.cfg[k])) + " → <b>" + esc(fmt(k, pf.cfg[k].value)) + "</b>"; }).join(", ") + "</li>";
+          Object.keys(pf.cfg).map(function (k) { return esc(labelOf(k)) + ": " + esc(fmt(k, r.cfg[r.fam + ":" + k])) + " → <b>" + esc(fmt(k, pf.cfg[k].value)) + "</b>"; }).join(", ") + "</li>";
       });
       if (fixable.length > 60) html += "<li>Y " + (fixable.length - 60) + " cámaras más</li>";
       html += "</ul>";
@@ -583,6 +668,8 @@ geotab.addin.cameraConfig = function () {
       if (off) html += "<p>" + (off === 1 ? "1 cámara está offline y recibe el cambio cuando se conecte." : off + " cámaras están offline y reciben el cambio cuando se conecten.") + "</p>";
       var partial = fixable.filter(function (r) { return patchFor(r).skipped.length; }).length;
       if (partial) html += "<p>Las diferencias de privacidad, standby, hotspot o cifrado no se cambian desde acá.</p>";
+      var plus = list.length - fixable.length;
+      if (plus) html += "<p>" + (plus === 1 ? "1 cámara seleccionada no se puede corregir" : plus + " cámaras seleccionadas no se pueden corregir") + " desde acá (GO Focus Plus): se cambian desde MyGeotab.</p>";
     }
     $("ccf-m-title").textContent = fixable.length ? "Aplicar el estándar" : "No hay cambios para aplicar desde acá";
     $("ccf-m-body").innerHTML = html;
@@ -633,18 +720,26 @@ geotab.addin.cameraConfig = function () {
     if (mins < 60 * 24) return "hace " + Math.round(mins / 60) + " h";
     return d.toLocaleDateString();
   }
+  function offText(r) {
+    if (r.daysOff === null) return "Sin registro de conexión";
+    var d = Math.floor(r.daysOff), h = Math.floor((r.daysOff - d) * 24);
+    return "Sin conexión hace " + d + (d === 1 ? " día" : " días") + (d < 7 && h ? " y " + h + " h" : "");
+  }
   function showMsg(t, kind) { var m = $("ccf-msg"); m.className = "msg " + (t ? kind : ""); m.textContent = t; }
 
   function counts() {
-    var c = { all: rows.length, ok: 0, dev: 0, err: 0, load: 0 };
-    rows.forEach(function (r) { if (r.state === "err") c.err++; else if (r.state === "loading") c.load++; else if (r.ndev > 0) c.dev++; else c.ok++; });
+    var c = { all: rows.length, ok: 0, dev: 0, err: 0, load: 0, fail: 0, working: 0 };
+    rows.forEach(function (r) {
+      if (r.state === "err") c.err++; else if (r.state === "loading") c.load++; else if (r.ndev > 0) c.dev++; else c.ok++;
+      if (r.failing) c.fail++; else c.working++;
+    });
     return c;
   }
 
   function renderHead(c) {
     var h = $("ccf-headline");
     if (loading) { h.className = "headline"; h.textContent = "Leyendo la configuración de las cámaras…"; return; }
-    if (!rows.length) { h.className = "headline"; h.textContent = "No hay cámaras Surfsight en esta base"; $("ccf-lede").textContent = ""; return; }
+    if (!rows.length) { h.className = "headline"; h.textContent = "No hay cámaras GO Focus en esta base"; $("ccf-lede").textContent = ""; return; }
     if (!controlled()) {
       h.className = "headline"; h.textContent = "Definí el estándar de la flota";
       $("ccf-lede").textContent = "Elegí en el panel de la izquierda el valor esperado de cada parámetro. Las cámaras con otro valor van a aparecer como desvío.";
@@ -652,7 +747,8 @@ geotab.addin.cameraConfig = function () {
     }
     if (c.dev) { h.className = "headline dev"; h.innerHTML = '<span class="n">' + c.dev + "</span> " + (c.dev === 1 ? "cámara fuera del estándar" : "cámaras fuera del estándar"); }
     else { h.className = "headline ok"; h.textContent = "Todas las cámaras siguen el estándar"; }
-    var parts = [c.all + " cámaras Surfsight en " + db];
+    var byFam = Object.keys(FAMILIES).map(function (f) { var n = rows.filter(function (r) { return r.fam === f; }).length; return n ? n + " " + FAMILIES[f].name : ""; }).filter(Boolean);
+    var parts = [c.all + " cámaras en " + db + " (" + byFam.join(", ") + ")"];
     if (c.err) parts.push(c.err + (c.err === 1 ? " sin lectura" : " sin lectura"));
     if (rows.otherCount) parts.push(rows.otherCount + " de otro proveedor no incluidas");
     $("ccf-lede").textContent = parts.join(", ") + ". Actualizado " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ".";
@@ -664,8 +760,9 @@ geotab.addin.cameraConfig = function () {
       var none = !controlled();
       var cls = r.state === "loading" ? "" : r.state === "err" ? "na" : none ? "" : r.ndev === 0 ? "ok" : r.ndev === 1 ? "d1" : "d2";
       var t = (r.vehicle || "Sin vehículo") + (r.plate ? " · " + r.plate : "") + " — " +
-        (r.state === "loading" ? "leyendo" : r.state === "err" ? "sin lectura" : none ? "sin estándar definido" : r.ndev ? r.ndev + (r.ndev === 1 ? " desvío" : " desvíos") : "conforme");
-      return '<button class="tile ' + cls + '" data-t="' + esc(r.imei) + '" title="' + esc(t) + '" aria-label="' + esc(t) + '"></button>';
+        (r.state === "loading" ? "leyendo" : r.state === "err" ? "sin lectura" : none ? "sin estándar definido" : r.ndev ? r.ndev + (r.ndev === 1 ? " desvío" : " desvíos") : "conforme") +
+        (r.failing ? ", " + offText(r).toLowerCase() : "");
+      return '<button class="tile ' + cls + (r.failing ? " fail" : "") + '" data-t="' + esc(r.imei) + '" title="' + esc(t) + '" aria-label="' + esc(t) + '"></button>';
     }).join("");
   }
 
@@ -678,10 +775,13 @@ geotab.addin.cameraConfig = function () {
     var html = '<div class="editor">';
     if (kind === "bool") html += '<div class="opts">' + opt(true, "Sí") + opt(false, "No") + "</div>";
     else if (kind === "enum") {
-      var vals = ENUMS[p.path].slice();
+      var vals = ENUMS[p.key].slice();
       distribution(p.path).forEach(function (d) { var v = JSON.parse(d.s); if (v !== null && vals.indexOf(v) < 0) vals.push(v); });
       html += '<div class="opts">' + vals.map(function (v) { return opt(v, fmt(p.path, v)); }).join("") + "</div>";
     } else {
+      // Texto o número: botones con los valores que ya existen en la flota, más un campo libre.
+      var seen = distribution(p.path).map(function (d) { return JSON.parse(d.s); }).filter(function (v) { return v !== null && v !== ""; });
+      if (!isSecret(p.path) && seen.length && seen.length <= 6) html += '<div class="opts">' + seen.map(function (v) { return opt(v, fmt(p.path, v)); }).join("") + "</div>";
       var val = has && cur !== null ? String(cur) : "";
       html += '<input class="field sm" data-in="' + esc(p.path) + '" data-kind="' + kind + '" type="' + (isSecret(p.path) ? "password" : kind === "num" ? "number" : "text") + '" value="' + esc(val) + '" placeholder="Valor esperado" aria-label="Valor estándar de ' + esc(p.label) + '">'
         + '<button type="button" class="btn sm" data-use="' + esc(p.path) + '">Usar</button>';
@@ -693,13 +793,19 @@ geotab.addin.cameraConfig = function () {
   }
 
   function renderParams() {
-    var read = rows.filter(function (r) { return r.cfg; }).length;
-    var html = "", lastGroup = null;
+    var html = "", lastGroup = null, lastFam = null;
     params.forEach(function (p) {
+      if (p.fam !== lastFam) {
+        var F = FAMILIES[p.fam] || { name: p.fam, sub: "" };
+        var nf = rows.filter(function (r) { return r.fam === p.fam; }).length;
+        html += '<div class="fam">' + esc(F.name) + " <span>" + esc(F.sub) + " · " + nf + (nf === 1 ? " cámara" : " cámaras") + "</span></div>";
+        lastFam = p.fam; lastGroup = null;
+      }
       if (p.group !== lastGroup) { html += '<div class="grp">' + esc(p.group) + "</div>"; lastGroup = p.group; }
       var has = p.path in std, cur = std[p.path];
-      var ndev = has ? rows.filter(function (r) { return r.cfg && ser(r.cfg[p.path]) !== cur; }).length : 0;
-      var pct = read && has ? Math.min(100, ndev / read * 100) : 0;
+      var famRead = rows.filter(function (r) { return r.cfg && r.fam === p.fam; }).length;
+      var ndev = has ? rows.filter(function (r) { return r.cfg && r.fam === p.fam && ser(r.cfg[p.path]) !== cur; }).length : 0;
+      var pct = famRead && has ? Math.min(100, ndev / famRead * 100) : 0;
       var sel = paramFilter === p.path;
       html += '<div class="prm' + (sel ? " sel" : "") + (has ? "" : " ig") + '" data-p="' + esc(p.path) + '" tabindex="0" title="' + esc(p.path) + '">'
         + '<span class="nm">' + esc(p.label) + "</span>"
@@ -723,13 +829,16 @@ geotab.addin.cameraConfig = function () {
   }
 
   function visibleRows() {
-    var q = $("ccf-q").value.trim().toLowerCase(), st = $("ccf-status").value;
+    var q = $("ccf-q").value.trim().toLowerCase(), st = $("ccf-status").value, md = $("ccf-model").value;
     return rows.filter(function (r) {
       if (filter === "ok" && !(r.state === "ok" && r.ndev === 0)) return false;
       if (filter === "dev" && !(r.ndev > 0 || r.state === "loading")) return false;
       if (filter === "err" && r.state !== "err") return false;
-      if (paramFilter && (paramFilter in std) && !(r.cfg && ser(r.cfg[paramFilter]) !== std[paramFilter])) return false;
+      if (filter === "fail" && !r.failing) return false;
+      if (filter === "working" && r.failing) return false;
+      if (paramFilter && (paramFilter in std) && !(r.cfg && r.fam === famOf(paramFilter) && ser(r.cfg[paramFilter]) !== std[paramFilter])) return false;
       if (st && r.status !== st) return false;
+      if (md && r.fam !== md) return false;
       if (q && (r.vehicle + " " + r.plate + " " + r.imei + " " + r.go).toLowerCase().indexOf(q) < 0) return false;
       return true;
     }).sort(function (a, b) {
@@ -744,6 +853,7 @@ geotab.addin.cameraConfig = function () {
     var devSet = {}; r.devs.forEach(function (p) { devSet[p.path] = true; });
     var html = "", group = null;
     params.forEach(function (p) {
+      if (p.fam !== r.fam) return;
       if (p.group !== group) { if (group !== null) html += "</div>"; html += "<div><h4>" + esc(p.group) + "</h4>"; group = p.group; }
       var d = devSet[p.path];
       html += '<div class="kv' + (d ? " d" : (p.path in std) ? "" : " ig") + '"><span class="k" title="' + esc(p.path) + '">' + esc(p.label) + '</span><span class="v">'
@@ -776,18 +886,35 @@ geotab.addin.cameraConfig = function () {
       return '<div class="cam' + (r.ndev > 0 ? " hasdev" : "") + '" id="ccf-r-' + esc(r.imei) + '">'
         + "<span><input type='checkbox' data-sel='" + esc(r.imei) + "'" + (selected[r.imei] ? " checked" : "") + (canFix ? "" : " disabled") + ' aria-label="Seleccionar ' + esc(r.vehicle || r.imei) + '"></span>'
         + '<span><div class="t1">' + veh + '</div><div class="t2">' + esc(r.plate || "Sin patente") + "</div></span>"
-        + '<span class="c-cam"><div>' + esc(r.imei) + '</div><div class="t2">' + esc(r.model || "Surfsight") + (r.go ? " en " + esc(r.go) : "") + "</div></span>"
-        + '<span class="c-conn"><div class="conn"><span class="dot ' + esc(r.status) + '"></span>' + esc(r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : "—") + '</div><div class="t2">' + esc(fmtDate(r.lastOnline)) + "</div></span>"
+        + '<span class="c-cam"><div>' + esc(r.imei) + '</div><div class="t2">' + esc((FAMILIES[r.fam] || {}).name || r.model) + (r.go ? " en " + esc(r.go) : "") + "</div></span>"
+        + '<span class="c-conn"><div class="conn"><span class="dot ' + esc(r.status) + '"></span>' + esc(r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : "—") + "</div>"
+        + '<div class="t2' + (r.failing ? " fail" : "") + '" title="Última conexión: ' + esc(r.lastConn ? new Date(r.lastConn).toLocaleString() : "sin registro") + '">'
+        + esc(r.failing ? offText(r).replace("Sin conexión hace ", "Hace ") : fmtDate(r.lastConn).replace(/^h/, "H")) + "</div></span>"
         + '<span class="c-dev">' + dev + "</span>"
         + '<span class="acts">' + (r.cfg ? '<button class="btn sm" data-x="' + esc(r.imei) + '" aria-expanded="' + !!expanded[r.imei] + '">' + (expanded[r.imei] ? "Cerrar" : "Ver todo") + "</button>" : "")
-        + (canFix ? '<button class="btn sm fix" data-fix="' + esc(r.imei) + '">Aplicar estándar</button>' : "") + "</span>"
+        + (canFix ? '<button class="btn sm fix" data-fix="' + esc(r.imei) + '">Aplicar estándar</button>'
+          : (r.state === "ok" && r.devs.length && !r.busy ? '<span class="note">Se corrige desde MyGeotab</span>' : "")) + "</span>"
         + (expanded[r.imei] && r.cfg ? detailHtml(r) : "")
         + "</div>";
     }).join("");
   }
 
+  function renderHealth(c) {
+    $("ccf-h-ok").textContent = c.working;
+    $("ccf-h-fail").textContent = c.fail;
+    document.querySelector("#ccf .hcard.fail").classList.toggle("zero", !c.fail);
+    Array.prototype.forEach.call(document.querySelectorAll("#ccf .hcard"), function (b) { b.classList.toggle("on", b.getAttribute("data-f") === filter); });
+    $("ccf-h-models").innerHTML = Object.keys(FAMILIES).map(function (f) {
+      var list = rows.filter(function (r) { return r.fam === f; }); if (!list.length) return "";
+      var bad = list.filter(function (r) { return r.failing; }).length;
+      return "<div><b>" + esc(FAMILIES[f].name) + "</b>: " + (list.length - bad) + " funcionando" + (bad ? ', <span class="bad">' + bad + " en falla</span>" : "") + "</div>";
+    }).join("") + (rows.otherCount ? "<div>" + rows.otherCount + " de otro proveedor, sin incluir</div>" : "");
+  }
+
   function renderControls(c) {
-    ["all", "ok", "dev", "err"].forEach(function (k) { $("ccf-n-" + k).textContent = c[k]; });
+    ["all", "ok", "dev", "err", "fail"].forEach(function (k) { $("ccf-n-" + k).textContent = c[k]; });
+    document.querySelector('#ccf-seg button[data-f="err"]').style.display = c.err || filter === "err" ? "" : "none";
+    renderHealth(c);
     Array.prototype.forEach.call(document.querySelectorAll("#ccf-seg button"), function (b) { b.classList.toggle("on", b.getAttribute("data-f") === filter); });
     $("ccf-paramchip").innerHTML = paramFilter && (paramFilter in std) ? '<span class="chip">Distinto en ' + esc(labelOf(paramFilter)) + ' <button id="ccf-pfx" aria-label="Quitar filtro">×</button></span>' : "";
     Array.prototype.forEach.call(document.querySelectorAll("#ccf .lh [data-s]"), function (s) { s.classList.toggle("sorted", s.getAttribute("data-s") === sortKey); });
@@ -806,12 +933,14 @@ geotab.addin.cameraConfig = function () {
   }
 
   function exportCsv() {
-    var head = ["Vehiculo", "Patente", "IMEI", "Serie GO", "Modelo", "Conexion", "Ultima conexion", "Lectura", "Cantidad de desvios", "Desvios"].concat(params.map(function (p) { return p.label; }));
-    var lines = [head, ["", "", "", "", "", "", "", "", "", "ESTÁNDAR"].concat(params.map(function (p) { return (p.path in std) ? stdText(p.path) : "(no controlado)"; }))];
+    var head = ["Vehiculo", "Patente", "IMEI", "Serie GO", "Modelo", "Conexion", "Ultima conexion", "Funcionamiento", "Lectura", "Cantidad de desvios", "Desvios"]
+      .concat(params.map(function (p) { return (FAMILIES[p.fam] || {}).name + " - " + p.label; }));
+    var lines = [head, ["", "", "", "", "", "", "", "", "", "", "ESTÁNDAR"].concat(params.map(function (p) { return (p.path in std) ? stdText(p.path) : "(no controlado)"; }))];
     visibleRows().forEach(function (r) {
-      lines.push([r.vehicle, r.plate, r.imei, r.go, r.model, r.status, r.lastOnline, r.state === "ok" ? "ok" : (r.why || r.state),
+      lines.push([r.vehicle, r.plate, r.imei, r.go, (FAMILIES[r.fam] || {}).name || r.model, r.status, r.lastConn,
+        r.failing ? "En falla (" + offText(r) + ")" : "Funcionando", r.state === "ok" ? "ok" : (r.why || r.state),
         r.state === "ok" ? r.devs.length : "", r.devs.map(function (p) { return p.label; }).join(" | ")]
-        .concat(params.map(function (p) { return r.cfg ? fmt(p.path, r.cfg[p.path]) : ""; })));
+        .concat(params.map(function (p) { return r.cfg && p.fam === r.fam ? fmt(p.path, r.cfg[p.path]) : ""; })));
     });
     var csv = "﻿" + lines.map(function (l) { return l.map(function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }).join(";"); }).join("\r\n");
     var a = document.createElement("a");
@@ -822,7 +951,7 @@ geotab.addin.cameraConfig = function () {
 
   function focusRow(imei) {
     var r = rows.filter(function (x) { return x.imei === imei; })[0]; if (!r) return;
-    filter = "all"; paramFilter = null; $("ccf-q").value = ""; $("ccf-status").value = "";
+    filter = "all"; paramFilter = null; $("ccf-q").value = ""; $("ccf-status").value = ""; $("ccf-model").value = "";
     if (r.cfg) expanded[imei] = true;
     renderAll();
     var el = $("ccf-r-" + imei);
@@ -838,6 +967,12 @@ geotab.addin.cameraConfig = function () {
     $("ccf-csv").onclick = exportCsv;
     $("ccf-q").oninput = rerender;
     $("ccf-status").onchange = rerender;
+    $("ccf-model").onchange = rerender;
+    $("ccf-health").onclick = function (e) {
+      var b = e.target.closest(".hcard"); if (!b) return;
+      var f = b.getAttribute("data-f"); filter = filter === f ? "all" : f;
+      paramFilter = null; renderParams(); rerender();
+    };
     $("ccf-m-cancel").onclick = closeModal;
     $("ccf-modal").onclick = function (e) { if (e.target === this) closeModal(); };
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
